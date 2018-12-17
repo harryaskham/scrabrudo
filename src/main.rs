@@ -17,8 +17,8 @@ pub trait Holdable {
 
 /// Anything that can deal Holdables.
 pub trait Dealer<T: Holdable> {
-    fn deal(&mut self) -> T;
-    fn deal_n(&mut self, n: u32) -> Vec<T> {
+    fn deal(&self) -> T;
+    fn deal_n(&self, n: u32) -> Vec<T> {
         (0..n).into_iter().map(|_| self.deal()).collect::<Vec<T>>()
     }
 }
@@ -27,34 +27,18 @@ pub trait Dealer<T: Holdable> {
 pub struct RandomDealer {}
 
 impl Dealer<Die> for RandomDealer {
-    fn deal(&mut self) -> Die {
+    fn deal(&self) -> Die {
         Die::get_random()
     }
 }
 
 /// A dealer that deals sequential cards.
 /// Useful for testing.
-pub struct SequentialDealer {
-    next: DieVal
-}
+pub struct OneDealer {}
 
-impl SequentialDealer {
-    fn new() -> Self {
-        Self{next: DieVal::Six}
-    }
-}
-
-impl Dealer<Die> for SequentialDealer {
-    fn deal(&mut self) -> Die {
-        self.next = match self.next {
-            DieVal::One => DieVal::Two,
-            DieVal::Two => DieVal::Three,
-            DieVal::Three => DieVal::Four,
-            DieVal::Four => DieVal::Five,
-            DieVal::Five => DieVal::Six,
-            DieVal::Six => DieVal::One,
-        };
-        Die::with_val(self.next.clone())
+impl Dealer<Die> for OneDealer {
+    fn deal(&self) -> Die {
+        Die::with_val(DieVal::One)
     }
 }
 
@@ -110,9 +94,40 @@ pub struct Hand<T: Holdable> {
 }
 
 impl <T: Holdable> Hand<T> {
-    pub fn new(mut dealer: Box<dyn Dealer<T>>, n: u32) -> Self {
+    pub fn new(dealer: &Box<dyn Dealer<T>>, n: u32) -> Self {
         Self {
             items: dealer.deal_n(n)
+        }
+    }
+}
+
+pub struct Player {
+    hand: Hand<Die>,
+    // TODO: Palafico tracker
+}
+
+impl Player {
+    fn new(dealer: &Box<dyn Dealer<Die>>) -> Self {
+        Self {
+            hand: Hand::<Die>::new(dealer, 5)
+        }
+    }
+}
+
+pub struct Game {
+    players: Vec<Player>,
+    turn_index: usize,
+}
+
+impl Game {
+    fn new(dealer: &Box<dyn Dealer<Die>>, num_players: u32) -> Self {
+        let mut players: Vec<Player> = Vec::new();
+        for _ in 0..num_players {
+            players.push(Player::new(&dealer));
+        }
+        Self {
+            players: players,
+            turn_index: 0
         }
     }
 }
@@ -124,17 +139,24 @@ fn main() {
 speculate! {
     describe "dealing" {
         it "deals a hand of five" {
-            let dealer = Box::new(SequentialDealer::new());
-            let hand = Hand::<Die>::new(dealer, 5);
+            let dealer = Box::new(OneDealer{});
+            let hand = Hand::<Die>::new(&dealer, 5);
             assert_eq!(5, hand.items.len()); 
-            assert_eq!(vec![DieVal::One, DieVal::Two, DieVal::Three, DieVal::Four, DieVal::Five],
+            assert_eq!(vec![DieVal::One, DieVal::One, DieVal::One, DieVal::One, DieVal::One],
                        hand.items.into_iter().map(|i| i.val()).collect::<Vec<DieVal>>());
         }
 
         it "deals a random hand" {
             let dealer = Box::new(RandomDealer{});
-            let hand = Hand::<Die>::new(dealer, 5);
+            let hand = Hand::<Die>::new(&dealer, 5);
             assert_eq!(5, hand.items.len()); 
+        }
+    }
+
+    describe "a game" {
+        it "initialises a game" {
+            let dealer = Box::new(RandomDealer{});
+            let _game = Game::new(&dealer, 6);
         }
     }
 }
