@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 speculate = "0.1.0"
+rsrl = "0.6.0"
+rand = "0.6.1"
 
 [dev-dependencies]
 speculate = "0.1.0"
