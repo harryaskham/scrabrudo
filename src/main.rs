@@ -26,19 +26,15 @@ pub trait Dealer<T: Holdable> {
 /// A dealer that provides random cards.
 pub struct RandomDealer {}
 
-impl Dealer<Die> for RandomDealer {
-    fn deal(&self) -> Die {
-        Die::get_random()
+impl RandomDealer {
+    fn new() -> Self {
+        Self{}
     }
 }
 
-/// A dealer that deals sequential cards.
-/// Useful for testing.
-pub struct OneDealer {}
-
-impl Dealer<Die> for OneDealer {
-    fn deal(&self) -> Die {
-        Die::with_val(DieVal::One)
+impl <T: Holdable> Dealer<T> for RandomDealer {
+    fn deal(&self) -> T {
+        T::get_random()
     }
 }
 
@@ -89,14 +85,16 @@ impl Holdable for Die {
 }
 
 /// A single agent's hand of dice.
+#[derive(Debug)]
 pub struct Hand<T: Holdable> {
     items: Vec<T>
 }
 
 impl <T: Holdable> Hand<T> {
-    pub fn new(dealer: &Box<dyn Dealer<T>>, n: u32) -> Self {
+    pub fn new(n: u32) -> Self {
         Self {
-            items: dealer.deal_n(n)
+            // TODO: Inject dealer for testing purposes.
+            items: RandomDealer::new().deal_n(n)
         }
     }
 }
@@ -107,9 +105,9 @@ pub struct Player {
 }
 
 impl Player {
-    fn new(dealer: &Box<dyn Dealer<Die>>) -> Self {
+    fn new() -> Self {
         Self {
-            hand: Hand::<Die>::new(dealer, 5)
+            hand: Hand::<Die>::new(5)
         }
     }
 }
@@ -120,10 +118,10 @@ pub struct Game {
 }
 
 impl Game {
-    fn new(dealer: &Box<dyn Dealer<Die>>, num_players: u32) -> Self {
+    fn new(num_players: u32) -> Self {
         let mut players: Vec<Player> = Vec::new();
         for _ in 0..num_players {
-            players.push(Player::new(&dealer));
+            players.push(Player::new());
         }
         Self {
             players: players,
@@ -139,24 +137,14 @@ fn main() {
 speculate! {
     describe "dealing" {
         it "deals a hand of five" {
-            let dealer = Box::new(OneDealer{});
-            let hand = Hand::<Die>::new(&dealer, 5);
-            assert_eq!(5, hand.items.len()); 
-            assert_eq!(vec![DieVal::One, DieVal::One, DieVal::One, DieVal::One, DieVal::One],
-                       hand.items.into_iter().map(|i| i.val()).collect::<Vec<DieVal>>());
-        }
-
-        it "deals a random hand" {
-            let dealer = Box::new(RandomDealer{});
-            let hand = Hand::<Die>::new(&dealer, 5);
+            let hand = Hand::<Die>::new(5);
             assert_eq!(5, hand.items.len()); 
         }
     }
 
     describe "a game" {
         it "initialises a game" {
-            let dealer = Box::new(RandomDealer{});
-            let _game = Game::new(&dealer, 6);
+            let _game = Game::new(6);
         }
     }
 }
