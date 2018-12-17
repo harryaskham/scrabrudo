@@ -1,0 +1,7 @@
+[package]
+name = "scrabrudo"
+version = "0.1.0"
+authors = ["Harry Askham <askham@google.com>"]
+edition = "2018"
+
+[dependencies]
