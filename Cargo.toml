@@ -1,7 +1,11 @@
 [package]
 name = "scrabrudo"
 version = "0.1.0"
-authors = ["Harry Askham <askham@google.com>"]
+authors = ["Harry Askham <harryaskham@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+speculate = "0.1.0"
+
+[dev-dependencies]
+speculate = "0.1.0"
