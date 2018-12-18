@@ -143,8 +143,10 @@ impl Game {
     }
 }
 
+// TODO: GameController that has a game? Manages hands?
+
 fn main() {
-    println!("Perudo TODO");
+    let mut game = Game::new(6);
 }
 
 speculate! {
