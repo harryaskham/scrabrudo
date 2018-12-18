@@ -41,7 +41,7 @@ impl <T: Holdable> Dealer<T> for RandomDealer {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum DieVal {
     One,
     Two,
@@ -80,6 +80,7 @@ impl Distribution<DieVal> for Standard {
 }
 
 /// A single die.
+#[derive(Debug, Clone)]
 pub struct Die {
     val: DieVal
 }
@@ -101,7 +102,7 @@ impl Holdable for Die {
 }
 
 /// A single agent's hand of dice.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Hand<T: Holdable> {
     items: Vec<T>
 }
@@ -115,6 +116,7 @@ impl <T: Holdable> Hand<T> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Player {
     hand: Hand<Die>,
     // TODO: Palafico tracker
@@ -151,25 +153,28 @@ impl Player {
         let num_other_dice = num_dice - self.hand.items.len();
         // Find the most common item in the hand.
         // Add the other amount over 3 plus the ones in the hand.
-        self.hand.items.into_iter().fold
+        //self.hand.items.into_iter().fold
+        Bet {
+            value: DieVal::Six,
+            quantity: 6
+        }
     }
 
     // TODO: Pluggable agent functions here for different styles.
     // TODO: Enumerate all possible outcomes and assign probability here.
-    fn play(&self, num_dice_per_player: Vec<u32>, current_outcome: TurnOutcome) -> TurnOutcome {
-        // Work out probability of incoming bet.
-        // Generate all possible other bets.
-        let num_dice = num_dice_per_player.into_iter().sum();
-
+    // TODO: Enforce no cheating by game introspection.
+    fn play(&self,
+            game: &Game,
+            current_outcome: &TurnOutcome) -> TurnOutcome {
+        let num_dice = game.num_dice_per_player().into_iter().sum();
+        let bet = self.simple_first_bet(num_dice);
         match current_outcome {
-            TurnOutcome::First => {
-                // Make a first bet using some strategy.
-                TurnOutcome::Bet(self.simple_first_bet(num_dice))
-            },
+            TurnOutcome::First => TurnOutcome::Bet(bet),
             TurnOutcome::Bet(current_bet) => {
-                // TODO: Observe bet and make a decision.
-                // At first: if simple first bet is too small, call Perudo.
-                TurnOutcome::Perudo
+                if bet > *current_bet {
+                    return TurnOutcome::Bet(bet);
+                }
+                return TurnOutcome::Perudo;
             },
             TurnOutcome::Perudo => panic!(),
         }
@@ -177,7 +182,7 @@ impl Player {
 }
 
 // TODO: Implement ordering, increment here for easy bet generation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Bet {
     value: DieVal,
     quantity: u32,
@@ -211,42 +216,52 @@ impl Game {
         self.players.len()
     }
 
-    fn is_valid(&self, bet: &Bet) -> bool {
+    fn is_correct(&self, bet: &Bet) -> bool {
         false  // TODO
+    }
+
+    fn num_dice_per_player(&self) -> Vec<usize> {
+        self.players.clone()
+            .into_iter()
+            .map(|p| p.hand.items.len())
+            .collect()
     }
 
     fn run_turn(&mut self) {
         let mut current_index = self.turn_index.clone();
-        let mut last_bet: Option<Bet> = None;
-        let mut last_player: Option<Player> = None;
+        let mut current_outcome = TurnOutcome::First;
+        // TODO: Remove hack via an Option.
+        let mut last_bet = Bet {
+            value: DieVal::One,
+            quantity: 0,
+        };
+        let mut last_player: &Player;
         loop {
-            let player = self.players[current_index];
-            let num_dice_per_player = self.players
-                .into_iter()
-                .map(|p| p.hand.items.len())
-                .collect();
-
-            // TODO: Include historic bets in the context.
-            match player.play(num_dice_per_player, current_outcome) {
-                TurnOutcome::First => panic!(),
-                TurnOutcome::Bet(x) => {
-                    last_bet = x;
-                    last_player = player;
+            // TODO: Include historic bets in the context given to the player.
+            let player = &self.players[current_index];
+            current_outcome = player.play(self, &current_outcome);
+            match &current_outcome {
+                TurnOutcome::Bet(bet) => {
+                    last_bet = bet.clone();
+                    last_player = &player;
                     current_index = (current_index + 1) % self.num_players();
+                    bet
                 },
                 TurnOutcome::Perudo => {
-                    if self.is_valid(last_bet) {
+                    if self.is_correct(&last_bet) {
                         self.end_turn(current_index);
                     } else {
                         self.end_turn((current_index - 1) % self.num_players());
                     }
+                    break;
                 }
-            }
+                TurnOutcome::First => panic!(),
+            };
         }
     }
 
     fn end_turn(&mut self, loser_index: usize) {
-        let loser = self.players[loser_index];
+        let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             if self.players.len() > 2 {
                 // This player is disqualified.
@@ -257,15 +272,13 @@ impl Game {
             }
         } else {
             // Refresh all players, loser loses an item.
-            self.players = self.players.into_iter()
+            self.players = self.players.clone().into_iter()
                 .enumerate()
                 .map(|(i, p)| if i == loser_index { p.without_one() } else { p.refresh() })
                 .collect();
         }
     }
 }
-
-// TODO: GameController that has a game? Manages hands?
 
 fn main() {
     let mut game = Game::new(6);
@@ -281,7 +294,7 @@ speculate! {
 
     describe "a game" {
         it "runs a turn" {
-            let game = Game::new(6);
+            let mut game = Game::new(6);
             game.run_turn();
         }
     }
