@@ -48,6 +48,19 @@ pub enum DieVal {
     Six
 }
 
+impl DieVal {
+    fn int(&self) -> u32 {
+        match &self {
+            DieVal::One => 1,
+            DieVal::Two => 2,
+            DieVal::Three => 3,
+            DieVal::Four => 4,
+            DieVal::Five => 5,
+            DieVal::Six => 6,
+        }
+    }
+}
+
 // Make it possible to generate random DieVals.
 impl Distribution<DieVal> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> DieVal {
