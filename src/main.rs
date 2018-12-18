@@ -1,5 +1,8 @@
 extern crate speculate;
 extern crate rand;
+#[macro_use] extern crate itertools;
+
+use itertools::Itertools;
 
 use rand::{
     distributions::{Distribution, Standard},
@@ -123,6 +126,68 @@ impl Player {
             hand: Hand::<Die>::new(5)
         }
     }
+
+    fn without_one(&self) -> Self {
+        Self {
+            hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1)
+        }
+    }
+
+    fn with_one(&self) -> Self {
+        Self {
+            hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1)
+        }
+    }
+
+    fn refresh(&self) -> Self {
+        Self {
+            hand: Hand::<Die>::new(self.hand.items.len() as u32)
+        }
+    }
+
+    // A simple implementation of a first bet.
+    // Makes the largest safe estimated bet.
+    fn simple_first_bet(&self, num_dice: usize) -> Bet {
+        let num_other_dice = num_dice - self.hand.items.len();
+        // Find the most common item in the hand.
+        // Add the other amount over 3 plus the ones in the hand.
+        self.hand.items.into_iter().fold
+    }
+
+    // TODO: Pluggable agent functions here for different styles.
+    // TODO: Enumerate all possible outcomes and assign probability here.
+    fn play(&self, num_dice_per_player: Vec<u32>, current_outcome: TurnOutcome) -> TurnOutcome {
+        // Work out probability of incoming bet.
+        // Generate all possible other bets.
+        let num_dice = num_dice_per_player.into_iter().sum();
+
+        match current_outcome {
+            TurnOutcome::First => {
+                // Make a first bet using some strategy.
+                TurnOutcome::Bet(self.simple_first_bet(num_dice))
+            },
+            TurnOutcome::Bet(current_bet) => {
+                // TODO: Observe bet and make a decision.
+                // At first: if simple first bet is too small, call Perudo.
+                TurnOutcome::Perudo
+            },
+            TurnOutcome::Perudo => panic!(),
+        }
+    }
+}
+
+// TODO: Implement ordering, increment here for easy bet generation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bet {
+    value: DieVal,
+    quantity: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TurnOutcome {
+    First,
+    Bet(Bet),
+    Perudo
 }
 
 pub struct Game {
@@ -139,6 +204,63 @@ impl Game {
         Self {
             players: players,
             turn_index: 0
+        }
+    }
+
+    fn num_players(&self) -> usize {
+        self.players.len()
+    }
+
+    fn is_valid(&self, bet: &Bet) -> bool {
+        false  // TODO
+    }
+
+    fn run_turn(&mut self) {
+        let mut current_index = self.turn_index.clone();
+        let mut last_bet: Option<Bet> = None;
+        let mut last_player: Option<Player> = None;
+        loop {
+            let player = self.players[current_index];
+            let num_dice_per_player = self.players
+                .into_iter()
+                .map(|p| p.hand.items.len())
+                .collect();
+
+            // TODO: Include historic bets in the context.
+            match player.play(num_dice_per_player, current_outcome) {
+                TurnOutcome::First => panic!(),
+                TurnOutcome::Bet(x) => {
+                    last_bet = x;
+                    last_player = player;
+                    current_index = (current_index + 1) % self.num_players();
+                },
+                TurnOutcome::Perudo => {
+                    if self.is_valid(last_bet) {
+                        self.end_turn(current_index);
+                    } else {
+                        self.end_turn((current_index - 1) % self.num_players());
+                    }
+                }
+            }
+        }
+    }
+
+    fn end_turn(&mut self, loser_index: usize) {
+        let loser = self.players[loser_index];
+        if loser.hand.items.len() == 1 {
+            if self.players.len() > 2 {
+                // This player is disqualified.
+                self.players.remove(loser_index);
+                self.turn_index = loser_index % self.num_players()
+            } else {
+                // End of game!
+            }
+        } else {
+            // Refresh all players, loser loses an item.
+            self.players = self.players.into_iter()
+                .enumerate()
+                .map(|(i, p)| if i == loser_index { p.without_one() } else { p.refresh() })
+                .collect();
         }
     }
 }
@@ -158,8 +280,9 @@ speculate! {
     }
 
     describe "a game" {
-        it "initialises a game" {
-            let _game = Game::new(6);
+        it "runs a turn" {
+            let game = Game::new(6);
+            game.run_turn();
         }
     }
 }
