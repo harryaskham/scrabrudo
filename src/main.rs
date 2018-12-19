@@ -235,12 +235,23 @@ impl Player {
         }
     }
 
-    // Makes the most probable available bet.
-    fn first_bet(&self, total_num_dice: usize) -> Bet {
-        unimplemented!()
+    // Gets the most probable available bet.
+    fn best_bet(&self, total_num_dice: usize) -> Bet {
+        Bet::all(total_num_dice)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
+            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u32)
+            .unwrap()
     }
 
-
+    // Gets the best bet above a certain bet.
+    fn best_bet_above(&self, bet: &Bet, total_num_dice: usize) -> Bet {
+        bet.all_above(total_num_dice)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
+            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u32)
+            .unwrap()
+    }
 
     // TODO: Pluggable agent functions here for different styles.
     // TODO: Enumerate all possible outcomes and assign probability here.
@@ -252,11 +263,13 @@ impl Player {
             return self.human_play(game, current_outcome);
         }
 
-        let bet = self.simple_first_bet(game.total_num_dice());
+        let total_num_dice = game.total_num_dice();
         match current_outcome {
-            TurnOutcome::First => TurnOutcome::Bet(bet),
+            TurnOutcome::First => TurnOutcome::Bet(self.best_bet(total_num_dice)),
             TurnOutcome::Bet(current_bet) => {
-                if bet > *current_bet {
+                let bet = self.best_bet_above(current_bet, total_num_dice);
+                // Either we have found a more probable outcome, or we need to call Perudo.
+                if bet.prob(total_num_dice, self) > current_bet.prob(total_num_dice, self) {
                     return TurnOutcome::Bet(bet);
                 }
                 return TurnOutcome::Perudo;
