@@ -156,7 +156,7 @@ pub struct Player {
 
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {:?}", self.id, (&self.hand.items)
+        write!(f, "{} ({:.2}): {:?}", self.id, self.caution, (&self.hand.items)
             .into_iter()
             .map(|d| d.val.int())
             .collect::<Vec<u32>>())
@@ -169,8 +169,7 @@ impl Player {
             id: id,
             human: human,
             hand: Hand::<Die>::new(5),
-            //caution: rand::thread_rng().gen(),
-            caution: 1.0,
+            caution: rand::thread_rng().gen_range(0.8, 1.0),
         }
     }
 
@@ -280,7 +279,11 @@ impl Player {
         let total_num_dice = game.total_num_dice();
         match current_outcome {
             TurnOutcome::First => {
-                let bets = self.ordered_bets(total_num_dice);
+                // TODO: A better encoding of the no-first-one rule.
+                let bets = self.ordered_bets(total_num_dice)
+                    .into_iter()
+                    .filter(|b| b.value != DieVal::One)
+                    .collect::<Vec<Bet>>();
                 return TurnOutcome::Bet(self.pick_bet_from(&bets));
             }
             TurnOutcome::Bet(current_bet) => {
@@ -479,7 +482,7 @@ impl fmt::Display for Game {
             .into_iter()
             .map(|p| format!("{}", p))
             .collect::<Vec<String>>()
-            .join("\n"))
+            .join(" | "))
     }
 }
 
