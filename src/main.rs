@@ -7,6 +7,7 @@ extern crate pretty_env_logger;
 extern crate probability;
 #[macro_use]
 extern crate approx;
+extern crate rurel;
 
 #[macro_use(c)]
 extern crate cute;
@@ -23,6 +24,7 @@ use std::io;
 use std::cmp::min;
 use probability::distribution::Distribution;
 use probability::prelude::*;
+use rurel::mdp::{State, Agent};
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -302,6 +304,7 @@ impl Player {
                 return TurnOutcome::Bet(self.pick_bet_from(&bets));
             }
             TurnOutcome::Perudo => panic!(),
+            TurnOutcome::Win => panic!(),
         }
     }
 
@@ -314,6 +317,7 @@ impl Player {
                 TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
                 TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo):"),
                 TurnOutcome::Perudo => panic!(),
+                TurnOutcome::Win => panic!(),
             };
 
             let mut line = String::new();
@@ -364,6 +368,7 @@ impl Player {
                     }
                 },
                 TurnOutcome::Perudo => panic!(),
+                TurnOutcome::Win => panic!(),
             };
         }
     }
@@ -470,10 +475,14 @@ pub enum TurnOutcome {
     First,
     Bet(Bet),
     Perudo,
+    Win,
 }
 
 pub struct Game {
     players: Vec<Player>,
+    current_index: usize,
+    current_outcome: TurnOutcome,
+    last_bet: Bet
 }
 
 impl fmt::Display for Game {
@@ -493,7 +502,16 @@ impl Game {
             let human = human_indices.contains(&id);
             players.push(Player::new(id, human));
         }
-        Self { players: players }
+        Self {
+            players: players,
+            current_index: 0,
+            current_outcome: TurnOutcome::First,
+            // TODO: Remove hack via an Option.
+            last_bet: Bet {
+                value: DieVal::One,
+                quantity: 0,
+            },
+        }
     }
 
     fn num_players(&self) -> usize {
@@ -544,49 +562,55 @@ impl Game {
     }
 
     fn run(&mut self) {
-        let mut current_index: usize = 0;
-        let mut current_outcome = TurnOutcome::First;
-        // TODO: Remove hack via an Option.
-        let mut last_bet = Bet {
-            value: DieVal::One,
-            quantity: 0,
-        };
         loop {
-            // TODO: Include historic bets in the context given to the player.
-            debug!("{}", self);  // Print the game state.
-            let player = &self.players[current_index];
-            current_outcome = player.play(self, &current_outcome);
-            match &current_outcome {
-                TurnOutcome::Bet(bet) => {
-                    info!("Player {} bets {}", player.id, bet);
-                    last_bet = bet.clone();
-                    current_index = (current_index + 1) % self.num_players();
-                }
-                TurnOutcome::Perudo => {
-                    info!("Player {} calls Perudo", player.id);
-                    let loser_index: usize;
-                    let actual_amount = self.num_logical_dice(&last_bet.value);
-                    if self.is_correct(&last_bet) {
-                        info!("Player {} is incorrect, there were {} {:?}s", player.id, actual_amount, last_bet.value);
-                        loser_index = current_index;
-                    } else {
-                        info!("Player {} is correct, there were {} {:?}s", player.id, actual_amount, last_bet.value);
-                        loser_index = (current_index + self.num_players() - 1) % self.num_players();
-                    };
-                    match self.end_turn(loser_index) {
-                        Some(i) => {
-                            current_index = i;
-                            current_outcome = TurnOutcome::First;
-                        }
-                        None => {
-                            info!("Player {} wins!", self.players[0].id);
-                            break;
-                        }
-                    };
-                }
-                TurnOutcome::First => panic!(),
-            };
+            // TODO: termination no longer exists.
+            self.run_turn();
+            match self.current_outcome {
+                TurnOutcome::Win => return,
+                _ => continue
+            }
         }
+    }
+
+    // Runs a turn and either finishes or sets up for the next turn.
+    fn run_turn(&mut self) {
+        // TODO: Include historic bets in the context given to the player.
+        debug!("{}", self);  // Print the game state.
+        let player = &self.players[self.current_index];
+        self.current_outcome = player.play(self, &self.current_outcome);
+        match &self.current_outcome {
+            TurnOutcome::Bet(bet) => {
+                info!("Player {} bets {}", player.id, bet);
+                self.last_bet = bet.clone();
+                self.current_index = (self.current_index + 1) % self.num_players();
+            }
+            TurnOutcome::Perudo => {
+                info!("Player {} calls Perudo", player.id);
+                let loser_index: usize;
+                let actual_amount = self.num_logical_dice(&self.last_bet.value);
+                if self.is_correct(&self.last_bet) {
+                    info!("Player {} is incorrect, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
+                    loser_index = self.current_index;
+                } else {
+                    info!("Player {} is correct, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
+                    loser_index = (self.current_index + self.num_players() - 1) % self.num_players();
+                };
+                match self.end_turn(loser_index) {
+                    Some(i) => {
+                        // Reset and prepare for the next turn.
+                        self.current_index = i;
+                        self.current_outcome = TurnOutcome::First;
+                    }
+                    None => {
+                        info!("Player {} wins!", self.players[0].id);
+                        self.current_outcome = TurnOutcome::Win;
+                        return;
+                    }
+                };
+            }
+            TurnOutcome::First => panic!(),
+            TurnOutcome::Win => panic!(),
+        };
     }
 
     // Ends the turn and returns the index of the next player.
@@ -623,6 +647,39 @@ impl Game {
         }
     }
 }
+
+// RL below.
+// TODO: Maybe run the game, building up a stack of actions/outcomes/rewards, and then cache them
+// all at the end of the game? Would this work?
+/*
+impl State for Game {
+    type Action = TurnOutcome;
+
+    fn reward(&self) -> f64 {
+        // TODO: need to await the outcome of the game here.
+        // Maybe shape as negative if we lose or are caught out, a little positive if the bet works
+        // and very positive if it causes us to win the next round.
+    }
+
+    fn actions(&self) -> Vec<TurnOutcome> {
+        // TODO: Enumerate all possible bets and the perudo outcome.
+    }
+}
+
+impl Agent<Game> for Player {
+	fn current_state(&self) -> &Game {
+        // TODO: add Game ref to Player
+		&self.game
+	}
+
+	fn take_action(&mut self, action: &TurnOutcome) {
+        // TODO: Move game to accept actions that override a given player's turn.
+        // Then when Game loop is controlled manually in main(), this function can move the state
+        // on.
+        // self.game.submit_turn(action)
+	}
+}
+*/
 
 fn main() {
     pretty_env_logger::init();
@@ -791,6 +848,9 @@ speculate! {
 
         it "runs an expected game setup" {
             let mut game = Game {
+                current_index: 0,
+                current_outcome: TurnOutcome::First,
+                last_bet: Bet { quantity: 0, value: DieVal::Two },
                 players: vec![
                     Player {
                         id: 0,
