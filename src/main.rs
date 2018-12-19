@@ -25,6 +25,7 @@ use std::cmp::min;
 use probability::distribution::Distribution;
 use probability::prelude::*;
 use rurel::mdp::{State, Agent};
+use std::rc::Rc;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -150,13 +151,14 @@ impl<T: Holdable> Hand<T> {
 #[derive(Debug, Clone)]
 pub struct Player {
     id: usize,
+    game: *const Game,
     hand: Hand<Die>,
     human: bool,
     caution: f64,
     // TODO: Palafico tracker
 }
 
-impl fmt::Display for Player {
+impl  fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} ({:.2}): {:?}", self.id, self.caution, (&self.hand.items)
             .into_iter()
@@ -165,10 +167,11 @@ impl fmt::Display for Player {
     }
 }
 
-impl Player {
-    fn new(id: usize, human: bool) -> Self {
+impl  Player {
+    fn new(id: usize, game: &Game, human: bool) -> Self {
         Self {
             id: id,
+            game: game,
             human: human,
             hand: Hand::<Die>::new(5),
             caution: rand::thread_rng().gen_range(0.8, 1.0),
@@ -178,6 +181,7 @@ impl Player {
     fn without_one(&self) -> Self {
         Self {
             id: self.id,
+            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
             caution: self.caution,
@@ -187,6 +191,7 @@ impl Player {
     fn with_one(&self) -> Self {
         Self {
             id: self.id,
+            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
             caution: self.caution,
@@ -196,6 +201,7 @@ impl Player {
     fn refresh(&self) -> Self {
         Self {
             id: self.id,
+            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
             caution: self.caution,
@@ -478,6 +484,7 @@ pub enum TurnOutcome {
     Win,
 }
 
+#[derive(Debug)]
 pub struct Game {
     players: Vec<Player>,
     current_index: usize,
@@ -485,7 +492,7 @@ pub struct Game {
     last_bet: Bet
 }
 
-impl fmt::Display for Game {
+impl  fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Hands: {:?}", (&self.players)
             .into_iter()
@@ -495,15 +502,10 @@ impl fmt::Display for Game {
     }
 }
 
-impl Game {
+impl  Game {
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
-        let mut players: Vec<Player> = Vec::new();
-        for id in 0..num_players {
-            let human = human_indices.contains(&id);
-            players.push(Player::new(id, human));
-        }
-        Self {
-            players: players,
+        let mut game = Self {
+            players: Vec::new(),
             current_index: 0,
             current_outcome: TurnOutcome::First,
             // TODO: Remove hack via an Option.
@@ -511,7 +513,14 @@ impl Game {
                 value: DieVal::One,
                 quantity: 0,
             },
+        };
+
+        for id in 0..num_players {
+            let human = human_indices.contains(&id);
+            game.players.push(Player::new(id, &game, human));
         }
+
+        game
     }
 
     fn num_players(&self) -> usize {
@@ -810,8 +819,10 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
+            let game = Game::new(0, HashSet::new());
             let player = Player {
                 id: 0,
+                game: &game,
                 human: false,
                 caution: 0.0,
                 hand: Hand::<Die> {
@@ -845,59 +856,5 @@ speculate! {
             let mut game = Game::new(6, HashSet::new());
             game.run();
         }
-
-        it "runs an expected game setup" {
-            let mut game = Game {
-                current_index: 0,
-                current_outcome: TurnOutcome::First,
-                last_bet: Bet { quantity: 0, value: DieVal::Two },
-                players: vec![
-                    Player {
-                        id: 0,
-                        human: false,
-                        caution: 0.0,
-                        hand: Hand::<Die> {
-                            items: vec![
-                                Die{ val: DieVal::One },
-                                Die{ val: DieVal::Two },
-                                Die{ val: DieVal::Two },
-                                Die{ val: DieVal::Five },
-                                Die{ val: DieVal::Six }
-                            ],
-                        },
-                    },
-                    Player {
-                        id: 1,
-                        human: false,
-                        caution: 0.0,
-                        hand: Hand::<Die> {
-                            items: vec![
-                                Die{ val: DieVal::One },
-                                Die{ val: DieVal::One },
-                                Die{ val: DieVal::Six },
-                                Die{ val: DieVal::Six },
-                                Die{ val: DieVal::Three }
-                            ],
-                        },
-                    },
-                    Player {
-                        id: 2,
-                        human: false,
-                        caution: 0.0,
-                        hand: Hand::<Die> {
-                            items: vec![
-                                Die{ val: DieVal::Five },
-                                Die{ val: DieVal::Five },
-                                Die{ val: DieVal::Five },
-                                Die{ val: DieVal::Two },
-                                Die{ val: DieVal::Three }
-                            ],
-                        },
-                    },
-                ],
-            };
-            game.run();
-        }
-
     }
 }
