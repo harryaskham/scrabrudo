@@ -12,6 +12,7 @@ use rand::{
 };
 use speculate::speculate;
 use std::collections::HashMap;
+use std::fmt;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -165,19 +166,30 @@ impl Player {
         }
     }
 
+    fn num_dice(&self, val: DieVal) -> usize {
+        (&self.hand.items)
+            .into_iter()
+            .filter(|d| d.val() == val)
+            .count()
+    }
+
+    fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
+        c! { val.clone() => self.num_dice(val), for val in DieVal::all().into_iter() }
+    }
+
     // A simple implementation of a first bet.
     // Makes the largest safe estimated bet.
-    fn simple_first_bet(&self, num_dice_per_val: &HashMap<DieVal, usize>) -> Bet {
-        let num_other_dice =
-            num_dice_per_val.values().into_iter().sum::<usize>() - self.hand.items.len();
-        // Get the number of Aces.
-        let num_aces = num_dice_per_val.get(&DieVal::One).unwrap();
+    fn simple_first_bet(&self, total_num_dice: usize) -> Bet {
+        let num_other_dice = total_num_dice - self.hand.items.len();
+        let num_aces = self.num_dice(DieVal::One);
         // Get the most commom non-One DieVal and its quantity in the hand.
-        let (most_common, quantity) = num_dice_per_val
+        let (most_common, quantity) = self.num_dice_per_val()
             .into_iter()
-            .filter(|x| x.0 != &DieVal::One)
+            .filter(|x| x.0 != DieVal::One)
             .max_by_key(|x| x.1)
             .unwrap();
+        debug!("Making bet based on {} aces, {} {:?}s in the hand, and {} other dice",
+               num_aces, quantity, most_common, num_other_dice);
 
         // Bet the max we believe in.
         Bet {
@@ -190,7 +202,7 @@ impl Player {
     // TODO: Enumerate all possible outcomes and assign probability here.
     // TODO: Enforce no cheating by game introspection.
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
-        let bet = self.simple_first_bet(&game.num_dice_per_val());
+        let bet = self.simple_first_bet(game.total_num_dice());
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(bet),
             TurnOutcome::Bet(current_bet) => {
@@ -204,7 +216,6 @@ impl Player {
     }
 }
 
-// TODO: Implement ordering, increment here for easy bet generation.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Bet {
     value: DieVal,
@@ -220,6 +231,18 @@ pub enum TurnOutcome {
 
 pub struct Game {
     players: Vec<Player>,
+}
+
+impl fmt::Display for Game {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Hands: {:?}", (&self.players)
+            .into_iter()
+            .map(|p| format!("{}: {:?}", p.id, (&p.hand.items)
+                             .into_iter()
+                             .map(|d| d.val.int())
+                             .collect::<Vec<u32>>()))
+            .collect::<Vec<String>>())
+    }
 }
 
 impl Game {
@@ -262,6 +285,10 @@ impl Game {
             .collect()
     }
 
+    fn total_num_dice(&self) -> usize {
+        self.num_dice_per_player().iter().sum()
+    }
+
     fn run(&mut self) {
         info!("Game commencing");
         let mut current_index: usize = 0;
@@ -273,6 +300,7 @@ impl Game {
         };
         loop {
             // TODO: Include historic bets in the context given to the player.
+            debug!("{}", self);  // Print the game state.
             let player = &self.players[current_index];
             current_outcome = player.play(self, &current_outcome);
             match &current_outcome {
@@ -297,6 +325,7 @@ impl Game {
                             current_outcome = TurnOutcome::First;
                         }
                         None => {
+                            info!("Player {} wins!", self.players[0].id);
                             break;
                         }
                     };
@@ -310,13 +339,12 @@ impl Game {
     fn end_turn(&mut self, loser_index: usize) -> Option<usize> {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
-            if self.players.len() > 2 {
-                // This player is disqualified.
-                info!("Player {} is disqualified", loser.id);
-                self.players.remove(loser_index);
+            info!("Player {} is disqualified", loser.id);
+            self.players.remove(loser_index);
+
+            if self.players.len() > 1 {
                 return Some((loser_index % self.num_players()) as usize);
             } else {
-                info!("All players are eliminated.");
                 return None;
             }
         } else {
@@ -345,7 +373,7 @@ impl Game {
 fn main() {
     env_logger::init();
     info!("Perudo 0.1");
-    let mut game = Game::new(6);
+    let mut game = Game::new(3);
     game.run();
 }
 
@@ -358,6 +386,36 @@ speculate! {
         it "deals a hand of five" {
             let hand = Hand::<Die>::new(5);
             assert_eq!(5, hand.items.len());
+        }
+    }
+
+    describe "bets" {
+        fn bet(v: DieVal, q: usize) -> Bet {
+            Bet {
+                value: v,
+                quantity: q,
+            }
+        }
+
+        it "orders bets correctly" {
+            // TODO: Test ones behaviour.
+            let bet_1 = bet(DieVal::Two, 1);
+            let bet_2 = bet(DieVal::Two, 2);
+            let bet_3 = bet(DieVal::Two, 6);
+            let bet_4 = bet(DieVal::Three, 6);
+            let bet_5 = bet(DieVal::Three, 7);
+            let bet_6 = bet(DieVal::Five, 7);
+            let bet_7 = bet(DieVal::Six, 7);
+            let bet_8 = bet(DieVal::Six, 8);
+            let bet_9 = bet(DieVal::Six, 10);
+            assert!(bet_1 < bet_2);
+            assert!(bet_2 < bet_3);
+            assert!(bet_3 < bet_4);
+            assert!(bet_4 < bet_5);
+            assert!(bet_5 < bet_6);
+            assert!(bet_6 < bet_7);
+            assert!(bet_7 < bet_8);
+            assert!(bet_8 < bet_9);
         }
     }
 
