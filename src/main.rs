@@ -201,6 +201,15 @@ impl Player {
             .count()
     }
 
+    // Gets the actual number of dice around the table, allowing for wildcards.
+    fn num_logical_dice(&self, val: DieVal) -> usize {
+        if val == DieVal::One {
+            self.num_dice(DieVal::One)
+        } else {
+            self.num_dice(DieVal::One) + self.num_dice(val)
+        }
+    }
+
     fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
         c! { val.clone() => self.num_dice(val), for val in DieVal::all().into_iter() }
     }
@@ -225,6 +234,13 @@ impl Player {
             quantity: (num_other_dice / 3) + num_aces + quantity,
         }
     }
+
+    // Makes the most probable available bet.
+    fn first_bet(&self, total_num_dice: usize) -> Bet {
+        unimplemented!()
+    }
+
+
 
     // TODO: Pluggable agent functions here for different styles.
     // TODO: Enumerate all possible outcomes and assign probability here.
@@ -342,17 +358,24 @@ impl Bet {
     // Get the probability of the bet being correct.
     // This is akin to the mass of this bet, plus all those with the same value and higher
     // quantity.
-    fn prob(&self, num_dice: usize) -> f64 {
-        // It can be thought of as getting 'quantity' positive trials from a 1/3 binomial
-        // distribution over 'num_dice' trials.
-        let trial_p: f64 = if self.value == DieVal::One { 1.0 / 6.0 } else { 1.0 / 3.0 };
+    // We also take into account only the other dice and count those we have in the given hand as
+    // guaranteed.
+    fn prob(&self, total_num_dice: usize, player: &Player) -> f64 {
+        // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
+        // in the other probabilities.
+        let guaranteed_quantity = player.num_logical_dice(self.value.clone());
+        if self.quantity <= guaranteed_quantity {
+            return 1.0;
+        }
        
         // TODO: Reframe the below as 1 minus the CDF of up to the bet.
         // Since we say the bet is correct if there are really n or higher.
         // We want 1 minus the probability there are less than n.
         // So that's 1 - cdf(n - 1)
-        (self.quantity..=num_dice)
-            .map(|q| Binomial::new(num_dice, trial_p).mass(q))
+        let trial_p: f64 = if self.value == DieVal::One { 1.0 / 6.0 } else { 1.0 / 3.0 };
+        let num_other_dice = total_num_dice - player.hand.items.len();
+        ((self.quantity - guaranteed_quantity)..=num_other_dice)
+            .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
             .sum::<f64>()
     }
 }
@@ -689,14 +712,31 @@ speculate! {
         }
 
         it "computes probability for bets" {
-            // Can't bet it, but testing out zero. This should always be a winning bet.
-            approx(1.0, bet(DieVal::One, 0).prob(1));
+            // Create a player with a few of each.
+            let player = Player {
+                id: 0,
+                human: false,
+                hand: Hand::<Die> {
+                    items: vec![
+                        Die{ val: DieVal::One },
+                        Die{ val: DieVal::Two },
+                        Die{ val: DieVal::Three },
+                        Die{ val: DieVal::Four },
+                        Die{ val: DieVal::Five }
+                    ],
+                },
+            };
 
-            // A single trial has a simple result.
-            approx(1.0 / 6.0, bet(DieVal::One, 1).prob(1));
+            // Bets on Ones, given one in the hand.
+            approx(1.0, bet(DieVal::One, 0).prob(6, &player));
+            approx(1.0, bet(DieVal::One, 1).prob(6, &player));
+            approx(1.0 / 6.0, bet(DieVal::One, 2).prob(6, &player));
 
-            // Here all three have to be twos or ones.
-            approx(1.0 / 27.0, bet(DieVal::Two, 3).prob(3));
+            // We have two 2s in the hand already.
+            approx(1.0, bet(DieVal::Two, 0).prob(6, &player));
+            approx(1.0, bet(DieVal::Two, 1).prob(6, &player));
+            approx(1.0, bet(DieVal::Two, 2).prob(6, &player));
+            approx(1.0 / 3.0, bet(DieVal::Two, 3).prob(6, &player));
 
             // TODO: More tests for the prob-calcs.
         }
