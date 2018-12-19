@@ -26,6 +26,7 @@ use probability::distribution::Distribution;
 use probability::prelude::*;
 use rurel::mdp::{State, Agent};
 use std::rc::Rc;
+use std::hash::{Hash, Hasher};
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -157,6 +158,15 @@ pub struct Player {
     caution: f64,
     // TODO: Palafico tracker
 }
+
+impl PartialEq for Player {
+    fn eq(&self, other: &Player) -> bool {
+        // TODO: Better equality for Players.
+        self.id == other.id
+    }
+}
+
+impl Eq for Player {}
 
 impl  fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -397,6 +407,13 @@ impl Bet {
             .collect::<Vec<Bet>>()
     }
 
+    fn all_without_ones(num_dice: usize) -> Vec<Self> {
+        Bet::all(num_dice)
+            .into_iter()
+            .filter(|b| b.value != DieVal::One)
+            .collect::<Vec<Bet>>()
+    }
+
     // Get all possible bets above the one given.
     fn all_above(&self, num_dice: usize) -> Vec<Self> {
         // Generate all bets and filter down to only those which are greater than the one given.
@@ -476,7 +493,7 @@ impl PartialOrd for Bet {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum TurnOutcome {
     First,
     Bet(Bet),
@@ -484,7 +501,7 @@ pub enum TurnOutcome {
     Win,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
     players: Vec<Player>,
     current_index: usize,
@@ -502,7 +519,7 @@ impl  fmt::Display for Game {
     }
 }
 
-impl  Game {
+impl Game {
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut game = Self {
             players: Vec::new(),
@@ -660,25 +677,57 @@ impl  Game {
 // RL below.
 // TODO: Maybe run the game, building up a stack of actions/outcomes/rewards, and then cache them
 // all at the end of the game? Would this work?
-/*
-impl State for Game {
-    type Action = TurnOutcome;
 
-    fn reward(&self) -> f64 {
-        // TODO: need to await the outcome of the game here.
-        // Maybe shape as negative if we lose or are caught out, a little positive if the bet works
-        // and very positive if it causes us to win the next round.
-    }
-
-    fn actions(&self) -> Vec<TurnOutcome> {
-        // TODO: Enumerate all possible bets and the perudo outcome.
+impl Hash for Game {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // self.players.hash(state);
+        // TODO is it okay to hash this?
+        // We should probably hash the current player to differentiate states.
+        self.current_index.hash(state);
+        self.current_outcome.hash(state);
+        self.last_bet.hash(state);
     }
 }
 
+impl State for Game {
+    type A = TurnOutcome;
+
+    fn reward(&self) -> f64 {
+        // Simple reward: how many dice does the player who just went have?
+        let player = &self.players[self.current_index];
+        // TODO: THIS WONT WORK - this is selecting the next player. We need to keep track of the
+        // last player to play. This might result in charitable play...
+        player.hand.items.len() as f64
+    }
+
+    fn actions(&self) -> Vec<TurnOutcome> {
+        match &self.current_outcome {
+            TurnOutcome::First => Bet::all_without_ones(self.total_num_dice())
+                .into_iter()
+                .map(|b| TurnOutcome::Bet(b))
+                .collect::<Vec<TurnOutcome>>(),
+            TurnOutcome::Bet(current_bet) => {
+                let mut outcomes = current_bet.all_above(self.total_num_dice())
+                    .into_iter()
+                    .map(|b| TurnOutcome::Bet(b))
+                    .collect::<Vec<TurnOutcome>>();
+                // Ensure the agent can play Dudo.
+                outcomes.push(TurnOutcome::Perudo);
+                outcomes
+            },
+            TurnOutcome::Perudo => panic!(),
+            TurnOutcome::Win => panic!(),
+        }
+    }
+}
+
+// TODO: Impl Hash for game for RL purposes.
 impl Agent<Game> for Player {
 	fn current_state(&self) -> &Game {
         // TODO: add Game ref to Player
-		&self.game
+        unsafe {
+            &(*self.game)  // TODO: remove unsafeness
+        }
 	}
 
 	fn take_action(&mut self, action: &TurnOutcome) {
@@ -688,7 +737,6 @@ impl Agent<Game> for Player {
         // self.game.submit_turn(action)
 	}
 }
-*/
 
 fn main() {
     pretty_env_logger::init();
