@@ -235,7 +235,7 @@ impl Ord for Bet {
     fn cmp(&self, other: &Bet) -> Ordering {
         // TODO: Ace ordering logic here.
         // We only need to know when one bet is larger than another so that we can see if the most
-        // probably option is playable.
+        // probable option is playable.
         if (self.value == other.value && self.quantity > other.quantity) ||
             (self.value > other.value && self.quantity >= other.quantity) {
             // If we've increased the die quantity then the bet is larger.
@@ -403,7 +403,7 @@ impl Game {
                     }
                 })
                 .collect();
-            info!("Player {} loses a die, now has {}.",
+            info!("Player {} loses a die, now has {}",
                   self.players[loser_index].id,
                   self.players[loser_index].hand.items.len());
             return Some(loser_index);
