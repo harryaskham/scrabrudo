@@ -253,9 +253,6 @@ impl Player {
             .unwrap()
     }
 
-    // TODO: Pluggable agent functions here for different styles.
-    // TODO: Enumerate all possible outcomes and assign probability here.
-    // TODO: Enforce no cheating by game introspection.
     // TODO: Trade-off between probability and quantity for a simple strategy.
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
         // TODO: More elegant way of implementing multiple play strategies.
