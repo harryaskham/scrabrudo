@@ -1,15 +1,15 @@
-extern crate speculate;
 extern crate rand;
-#[macro_use] extern crate itertools;
-
-use itertools::Itertools;
-
+extern crate speculate;
+#[macro_use]
+extern crate log;
+#[macro_use(c)]
+extern crate cute;
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
-
 use speculate::speculate;
+use std::collections::HashMap;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -31,24 +31,24 @@ pub struct RandomDealer {}
 
 impl RandomDealer {
     fn new() -> Self {
-        Self{}
+        Self {}
     }
 }
 
-impl <T: Holdable> Dealer<T> for RandomDealer {
+impl<T: Holdable> Dealer<T> for RandomDealer {
     fn deal(&self) -> T {
         T::get_random()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub enum DieVal {
     One,
     Two,
     Three,
     Four,
     Five,
-    Six
+    Six,
 }
 
 impl DieVal {
@@ -61,6 +61,17 @@ impl DieVal {
             DieVal::Five => 5,
             DieVal::Six => 6,
         }
+    }
+
+    pub fn all() -> Vec<DieVal> {
+        vec![
+            DieVal::One,
+            DieVal::Two,
+            DieVal::Three,
+            DieVal::Four,
+            DieVal::Five,
+            DieVal::Six,
+        ]
     }
 }
 
@@ -82,7 +93,7 @@ impl Distribution<DieVal> for Standard {
 /// A single die.
 #[derive(Debug, Clone)]
 pub struct Die {
-    val: DieVal
+    val: DieVal,
 }
 
 impl Holdable for Die {
@@ -92,7 +103,7 @@ impl Holdable for Die {
 
     fn get_random() -> Self {
         Self {
-            val: rand::random()
+            val: rand::random(),
         }
     }
 
@@ -104,14 +115,14 @@ impl Holdable for Die {
 /// A single agent's hand of dice.
 #[derive(Debug, Clone)]
 pub struct Hand<T: Holdable> {
-    items: Vec<T>
+    items: Vec<T>,
 }
 
-impl <T: Holdable> Hand<T> {
+impl<T: Holdable> Hand<T> {
     pub fn new(n: u32) -> Self {
         Self {
             // TODO: Inject dealer for testing purposes.
-            items: RandomDealer::new().deal_n(n)
+            items: RandomDealer::new().deal_n(n),
         }
     }
 }
@@ -125,49 +136,54 @@ pub struct Player {
 impl Player {
     fn new() -> Self {
         Self {
-            hand: Hand::<Die>::new(5)
+            hand: Hand::<Die>::new(5),
         }
     }
 
     fn without_one(&self) -> Self {
         Self {
-            hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1)
+            hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
         }
     }
 
     fn with_one(&self) -> Self {
         Self {
-            hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1)
+            hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
         }
     }
 
     fn refresh(&self) -> Self {
         Self {
-            hand: Hand::<Die>::new(self.hand.items.len() as u32)
+            hand: Hand::<Die>::new(self.hand.items.len() as u32),
         }
     }
 
     // A simple implementation of a first bet.
     // Makes the largest safe estimated bet.
-    fn simple_first_bet(&self, num_dice: usize) -> Bet {
-        let num_other_dice = num_dice - self.hand.items.len();
-        // Find the most common item in the hand.
-        // Add the other amount over 3 plus the ones in the hand.
-        //self.hand.items.into_iter().fold
+    fn simple_first_bet(&self, num_dice_per_val: &HashMap<DieVal, usize>) -> Bet {
+        let num_other_dice =
+            num_dice_per_val.values().into_iter().sum::<usize>() - self.hand.items.len();
+        // Get the number of Aces.
+        let num_aces = num_dice_per_val.get(&DieVal::One).unwrap();
+        // Get the most commom non-One DieVal and its quantity in the hand.
+        let (most_common, quantity) = num_dice_per_val
+            .into_iter()
+            .filter(|x| x.0 != &DieVal::One)
+            .max_by_key(|x| x.1)
+            .unwrap();
+
+        // Bet the max we believe in.
         Bet {
-            value: DieVal::Six,
-            quantity: 6
+            value: most_common.clone(),
+            quantity: (num_other_dice / 3) + num_aces + quantity,
         }
     }
 
     // TODO: Pluggable agent functions here for different styles.
     // TODO: Enumerate all possible outcomes and assign probability here.
     // TODO: Enforce no cheating by game introspection.
-    fn play(&self,
-            game: &Game,
-            current_outcome: &TurnOutcome) -> TurnOutcome {
-        let num_dice = game.num_dice_per_player().into_iter().sum();
-        let bet = self.simple_first_bet(num_dice);
+    fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+        let bet = self.simple_first_bet(&game.num_dice_per_val());
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(bet),
             TurnOutcome::Bet(current_bet) => {
@@ -175,7 +191,7 @@ impl Player {
                     return TurnOutcome::Bet(bet);
                 }
                 return TurnOutcome::Perudo;
-            },
+            }
             TurnOutcome::Perudo => panic!(),
         }
     }
@@ -185,19 +201,18 @@ impl Player {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Bet {
     value: DieVal,
-    quantity: u32,
+    quantity: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TurnOutcome {
     First,
     Bet(Bet),
-    Perudo
+    Perudo,
 }
 
 pub struct Game {
     players: Vec<Player>,
-    turn_index: usize,
 }
 
 impl Game {
@@ -206,96 +221,173 @@ impl Game {
         for _ in 0..num_players {
             players.push(Player::new());
         }
-        Self {
-            players: players,
-            turn_index: 0
-        }
+        Self { players: players }
     }
 
     fn num_players(&self) -> usize {
         self.players.len()
     }
 
+    fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
+        c! { val.clone() => self.num_dice(&val), for val in DieVal::all().into_iter() }
+    }
+
+    fn num_dice(&self, val: &DieVal) -> usize {
+        (&self.players)
+            .into_iter()
+            .map(|p| &p.hand.items)
+            .flatten()
+            .filter(|d| &d.val() == val)
+            .count()
+    }
+
     fn is_correct(&self, bet: &Bet) -> bool {
-        false  // TODO
+        (bet.value == DieVal::One && bet.quantity == self.num_dice(&DieVal::One))
+            || (bet.value != DieVal::One
+                && bet.quantity == (self.num_dice(&DieVal::One) + self.num_dice(&bet.value)))
     }
 
     fn num_dice_per_player(&self) -> Vec<usize> {
-        self.players.clone()
+        self.players
+            .clone()
             .into_iter()
             .map(|p| p.hand.items.len())
             .collect()
     }
 
-    fn run_turn(&mut self) {
-        let mut current_index = self.turn_index.clone();
+    fn run(&mut self) {
+        info!("Game commencing");
+        let mut current_index: usize = 0;
         let mut current_outcome = TurnOutcome::First;
         // TODO: Remove hack via an Option.
         let mut last_bet = Bet {
             value: DieVal::One,
             quantity: 0,
         };
-        let mut last_player: &Player;
         loop {
             // TODO: Include historic bets in the context given to the player.
             let player = &self.players[current_index];
             current_outcome = player.play(self, &current_outcome);
             match &current_outcome {
                 TurnOutcome::Bet(bet) => {
+                    info!("Player {} bets {:?}", current_index, bet);
                     last_bet = bet.clone();
-                    last_player = &player;
                     current_index = (current_index + 1) % self.num_players();
-                    bet
-                },
+                }
                 TurnOutcome::Perudo => {
-                    if self.is_correct(&last_bet) {
-                        self.end_turn(current_index);
+                    let loser_index = if self.is_correct(&last_bet) {
+                        current_index
                     } else {
-                        self.end_turn((current_index - 1) % self.num_players());
-                    }
-                    break;
+                        (current_index + self.num_players() - 1) % self.num_players()
+                    };
+                    match self.end_turn(loser_index) {
+                        Some(i) => {
+                            current_index = i;
+                            current_outcome = TurnOutcome::First;
+                        }
+                        None => {
+                            info!("Game over");
+                            break;
+                        }
+                    };
                 }
                 TurnOutcome::First => panic!(),
             };
         }
     }
 
-    fn end_turn(&mut self, loser_index: usize) {
+    // Ends the turn and returns the index of the next player.
+    fn end_turn(&mut self, loser_index: usize) -> Option<usize> {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             if self.players.len() > 2 {
                 // This player is disqualified.
                 self.players.remove(loser_index);
-                self.turn_index = loser_index % self.num_players()
+                return Some((loser_index % self.num_players()) as usize);
             } else {
                 // End of game!
+                return None;
             }
         } else {
             // Refresh all players, loser loses an item.
-            self.players = self.players.clone().into_iter()
+            self.players = self
+                .players
+                .clone()
+                .into_iter()
                 .enumerate()
-                .map(|(i, p)| if i == loser_index { p.without_one() } else { p.refresh() })
+                .map(|(i, p)| {
+                    if i == loser_index {
+                        p.without_one()
+                    } else {
+                        p.refresh()
+                    }
+                })
                 .collect();
+            return Some(loser_index);
         }
     }
 }
 
 fn main() {
+    info!("Perudo 0.1");
     let mut game = Game::new(6);
+    game.run();
 }
 
 speculate! {
     describe "dealing" {
         it "deals a hand of five" {
             let hand = Hand::<Die>::new(5);
-            assert_eq!(5, hand.items.len()); 
+            assert_eq!(5, hand.items.len());
         }
     }
 
     describe "a game" {
-        it "runs a turn" {
+        it "runs to completion" {
             let mut game = Game::new(6);
-            game.run_turn();
+            game.run();
         }
+
+        it "runs an expected game setup" {
+            let mut game = Game {
+                players: vec![
+                    Player {
+                        hand: Hand::<Die> {
+                            items: vec![
+                                Die{ val: DieVal::One },
+                                Die{ val: DieVal::Two },
+                                Die{ val: DieVal::Two },
+                                Die{ val: DieVal::Five },
+                                Die{ val: DieVal::Six }
+                            ],
+                        },
+                    },
+                    Player {
+                        hand: Hand::<Die> {
+                            items: vec![
+                                Die{ val: DieVal::One },
+                                Die{ val: DieVal::One },
+                                Die{ val: DieVal::Six },
+                                Die{ val: DieVal::Six },
+                                Die{ val: DieVal::Three }
+                            ],
+                        },
+                    },
+                    Player {
+                        hand: Hand::<Die> {
+                            items: vec![
+                                Die{ val: DieVal::Five },
+                                Die{ val: DieVal::Five },
+                                Die{ val: DieVal::Five },
+                                Die{ val: DieVal::Two },
+                                Die{ val: DieVal::Three }
+                            ],
+                        },
+                    },
+                ],
+            };
+            game.run();
+        }
+
     }
 }
