@@ -4,13 +4,14 @@ extern crate speculate;
 extern crate log;
 extern crate pretty_env_logger;
 #[macro_use] extern crate itertools;
+extern crate probability;
+#[macro_use]
+extern crate approx;
 
 #[macro_use(c)]
 extern crate cute;
-use rand::{
-    distributions::{Distribution, Standard},
-    Rng,
-};
+use rand::distributions::Standard;
+use rand::Rng;
 use speculate::speculate;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -19,6 +20,8 @@ use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::env;
 use std::io;
+use probability::distribution::Distribution;
+use probability::prelude::*;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -90,7 +93,7 @@ impl DieVal {
 }
 
 // Make it possible to generate random DieVals.
-impl Distribution<DieVal> for Standard {
+impl rand::distributions::Distribution<DieVal> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> DieVal {
         match rng.gen_range(1, 7) {
             1 => DieVal::One,
@@ -226,6 +229,7 @@ impl Player {
     // TODO: Pluggable agent functions here for different styles.
     // TODO: Enumerate all possible outcomes and assign probability here.
     // TODO: Enforce no cheating by game introspection.
+    // TODO: Trade-off between probability and quantity for a simple strategy.
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
         // TODO: More elegant way of implementing multiple play strategies.
         if self.human {
@@ -316,20 +320,40 @@ pub struct Bet {
 }
 
 impl Bet {
-    // Get all possible bets above the one given.
-    fn all_above(&self, num_dice: usize) -> Vec<Self> {
-        // Generate all bets and filter down to only those which are greater than the one given.
+    // Generate all possible bets.
+    fn all(num_dice: usize) -> Vec<Self> {
         iproduct!(DieVal::all().into_iter(), 1..=num_dice)
             .map(|(value, quantity)| Bet {
                 value: value,
                 quantity: quantity,
             })
+            .collect::<Vec<Bet>>()
+    }
+
+    // Get all possible bets above the one given.
+    fn all_above(&self, num_dice: usize) -> Vec<Self> {
+        // Generate all bets and filter down to only those which are greater than the one given.
+        Bet::all(num_dice)
+            .into_iter()
             .filter(|b| b > self)
             .collect::<Vec<Bet>>()
     }
 
-    fn prob(self, num_dice: usize) -> f64 {
-        0.00
+    // Get the probability of the bet being correct.
+    // This is akin to the mass of this bet, plus all those with the same value and higher
+    // quantity.
+    fn prob(&self, num_dice: usize) -> f64 {
+        // It can be thought of as getting 'quantity' positive trials from a 1/3 binomial
+        // distribution over 'num_dice' trials.
+        let trial_p: f64 = if self.value == DieVal::One { 1.0 / 6.0 } else { 1.0 / 3.0 };
+       
+        // TODO: Reframe the below as 1 minus the CDF of up to the bet.
+        // Since we say the bet is correct if there are really n or higher.
+        // We want 1 minus the probability there are less than n.
+        // So that's 1 - cdf(n - 1)
+        (self.quantity..=num_dice)
+            .map(|q| Binomial::new(num_dice, trial_p).mass(q))
+            .sum::<f64>()
     }
 }
 
@@ -656,6 +680,25 @@ speculate! {
                     bet(DieVal::Six, 2),
                 ],
                 original.all_above(2));
+        }
+
+        fn approx(x: f64, y: f64) {
+            if (x - y).abs() > 0.001 {
+                panic!("{} != {}", x, y);
+            }
+        }
+
+        it "computes probability for bets" {
+            // Can't bet it, but testing out zero. This should always be a winning bet.
+            approx(1.0, bet(DieVal::One, 0).prob(1));
+
+            // A single trial has a simple result.
+            approx(1.0 / 6.0, bet(DieVal::One, 1).prob(1));
+
+            // Here all three have to be twos or ones.
+            approx(1.0 / 27.0, bet(DieVal::Two, 3).prob(3));
+
+            // TODO: More tests for the prob-calcs.
         }
     }
 
