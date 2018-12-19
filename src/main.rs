@@ -20,6 +20,7 @@ use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::env;
 use std::io;
+use std::cmp::min;
 use probability::distribution::Distribution;
 use probability::prelude::*;
 
@@ -149,6 +150,7 @@ pub struct Player {
     id: usize,
     hand: Hand<Die>,
     human: bool,
+    caution: f64,
     // TODO: Palafico tracker
 }
 
@@ -167,6 +169,8 @@ impl Player {
             id: id,
             human: human,
             hand: Hand::<Die>::new(5),
+            //caution: rand::thread_rng().gen(),
+            caution: 1.0,
         }
     }
 
@@ -175,6 +179,7 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
+            caution: self.caution,
         }
     }
 
@@ -183,6 +188,7 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
+            caution: self.caution,
         }
     }
 
@@ -191,6 +197,7 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
+            caution: self.caution,
         }
     }
 
@@ -214,43 +221,53 @@ impl Player {
         c! { val.clone() => self.num_dice(val), for val in DieVal::all().into_iter() }
     }
 
-    // A simple implementation of a first bet.
-    // Makes the largest safe estimated bet.
-    fn simple_first_bet(&self, total_num_dice: usize) -> Bet {
-        let num_other_dice = total_num_dice - self.hand.items.len();
-        let num_aces = self.num_dice(DieVal::One);
-        // Get the most commom non-One DieVal and its quantity in the hand.
-        let (most_common, quantity) = self.num_dice_per_val()
-            .into_iter()
-            .filter(|x| x.0 != DieVal::One)
-            .max_by_key(|x| x.1)
-            .unwrap();
-        debug!("Making bet based on {} aces, {} {:?}s in the hand, and {} other dice",
-               num_aces, quantity, most_common, num_other_dice);
-
-        // Bet the max we believe in.
-        Bet {
-            value: most_common.clone(),
-            quantity: (num_other_dice / 3) + num_aces + quantity,
-        }
-    }
-
     // Gets the most probable available bet.
     fn best_bet(&self, total_num_dice: usize) -> Bet {
         Bet::all(total_num_dice)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
-            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u32)
+            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64)
             .unwrap()
     }
 
     // Gets the best bet above a certain bet.
-    fn best_bet_above(&self, bet: &Bet, total_num_dice: usize) -> Bet {
+    // None if we actually don't have any possible bet.
+    fn best_bet_above(&self, bet: &Bet, total_num_dice: usize) -> Option<Bet> {
         bet.all_above(total_num_dice)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
-            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u32)
-            .unwrap()
+            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64)
+    }
+
+    // Gets all bets ordered by probability.
+    fn ordered_bets(&self, total_num_dice: usize) -> Vec<Bet> {
+        let mut bets = Bet::all(total_num_dice)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
+            .map(|b| ((100000.0 * b.prob(total_num_dice, self)) as u64, b))
+            .collect::<Vec<(u64, Bet)>>();
+        bets.sort_by(|a, b| a.0.cmp(&b.0));
+        bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
+    }
+
+    // Gets all bets ordered by probability above a certain bet.
+    fn ordered_bets_above(&self, bet: &Bet, total_num_dice: usize) -> Vec<Bet> {
+        let mut bets = bet.all_above(total_num_dice)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
+            .map(|b| ((100000.0 * b.prob(total_num_dice, self)) as u64, b))
+            .collect::<Vec<(u64, Bet)>>();
+        bets.sort_by(|a, b| a.0.cmp(&b.0));
+        bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
+    }
+
+    // Pick the best bet from those given, given the player's caution rating.
+    fn pick_bet_from(&self, bets: &Vec<Bet>) -> Bet {
+        // caution of 1.0 will always choose the best bet
+        // caution of 0.0 will always choose the worst
+        // TODO: Introduce sigmoid
+        // TODO: Maybe rename as skill...
+        bets[min((self.caution * bets.len() as f64) as usize, bets.len() - 1)].clone()
     }
 
     // TODO: Trade-off between probability and quantity for a simple strategy.
@@ -262,14 +279,24 @@ impl Player {
 
         let total_num_dice = game.total_num_dice();
         match current_outcome {
-            TurnOutcome::First => TurnOutcome::Bet(self.best_bet(total_num_dice)),
+            TurnOutcome::First => {
+                let bets = self.ordered_bets(total_num_dice);
+                return TurnOutcome::Bet(self.pick_bet_from(&bets));
+            }
             TurnOutcome::Bet(current_bet) => {
-                let bet = self.best_bet_above(current_bet, total_num_dice);
-                // Either we have found a more probable outcome, or we need to call Perudo.
-                if bet.prob(total_num_dice, self) > current_bet.prob(total_num_dice, self) {
-                    return TurnOutcome::Bet(bet);
+                // If there is no better bet available then call Perudo.
+                let bet = match self.best_bet_above(current_bet, total_num_dice) {
+                    Some(b) => b,
+                    // TODO: Do better than calling Perudo if we reach the maximum bet.
+                    None => return TurnOutcome::Perudo
+                };
+                if bet.prob(total_num_dice, self) < current_bet.prob(total_num_dice, self) {
+                    return TurnOutcome::Perudo
                 }
-                return TurnOutcome::Perudo;
+
+                // Otherwise choose from the remaining available bets.
+                let bets = self.ordered_bets_above(current_bet, total_num_dice);
+                return TurnOutcome::Bet(self.pick_bet_from(&bets));
             }
             TurnOutcome::Perudo => panic!(),
         }
@@ -726,6 +753,7 @@ speculate! {
             let player = Player {
                 id: 0,
                 human: false,
+                caution: 0.0,
                 hand: Hand::<Die> {
                     items: vec![
                         Die{ val: DieVal::One },
@@ -764,6 +792,7 @@ speculate! {
                     Player {
                         id: 0,
                         human: false,
+                        caution: 0.0,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -777,6 +806,7 @@ speculate! {
                     Player {
                         id: 1,
                         human: false,
+                        caution: 0.0,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -790,6 +820,7 @@ speculate! {
                     Player {
                         id: 2,
                         human: false,
+                        caution: 0.0,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::Five },
