@@ -2,7 +2,7 @@ extern crate rand;
 extern crate speculate;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
+extern crate pretty_env_logger;
 
 #[macro_use(c)]
 extern crate cute;
@@ -12,10 +12,12 @@ use rand::{
 };
 use speculate::speculate;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::env;
+use std::io;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -79,6 +81,11 @@ impl DieVal {
             DieVal::Six,
         ]
     }
+
+    pub fn from_usize(x: usize) -> DieVal {
+        let all = DieVal::all();
+        all[x - 1].clone()
+    }
 }
 
 // Make it possible to generate random DieVals.
@@ -137,13 +144,24 @@ impl<T: Holdable> Hand<T> {
 pub struct Player {
     id: usize,
     hand: Hand<Die>,
+    human: bool,
     // TODO: Palafico tracker
 }
 
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {:?}", self.id, (&self.hand.items)
+            .into_iter()
+            .map(|d| d.val.int())
+            .collect::<Vec<u32>>())
+    }
+}
+
 impl Player {
-    fn new(id: usize) -> Self {
+    fn new(id: usize, human: bool) -> Self {
         Self {
             id: id,
+            human: human,
             hand: Hand::<Die>::new(5),
         }
     }
@@ -151,6 +169,7 @@ impl Player {
     fn without_one(&self) -> Self {
         Self {
             id: self.id,
+            human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
         }
     }
@@ -158,6 +177,7 @@ impl Player {
     fn with_one(&self) -> Self {
         Self {
             id: self.id,
+            human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
         }
     }
@@ -165,6 +185,7 @@ impl Player {
     fn refresh(&self) -> Self {
         Self {
             id: self.id,
+            human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
         }
     }
@@ -205,6 +226,11 @@ impl Player {
     // TODO: Enumerate all possible outcomes and assign probability here.
     // TODO: Enforce no cheating by game introspection.
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+        // TODO: More elegant way of implementing multiple play strategies.
+        if self.human {
+            return self.human_play(game, current_outcome);
+        }
+
         let bet = self.simple_first_bet(game.total_num_dice());
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(bet),
@@ -215,6 +241,69 @@ impl Player {
                 return TurnOutcome::Perudo;
             }
             TurnOutcome::Perudo => panic!(),
+        }
+    }
+
+    // TODO: Make this a play function on some trait.
+    fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+        loop {
+            info!("Dice left: {:?} ({})", game.num_dice_per_player(), game.total_num_dice());
+            info!("Hand for Player {})", self);
+            match current_outcome {
+                TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
+                TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo):"),
+                TurnOutcome::Perudo => panic!(),
+            };
+
+            let mut line = String::new();
+            io::stdin().read_line(&mut line).expect("Failed to read input");
+            let line = line.trim();
+
+            if line == "p" {
+                return TurnOutcome::Perudo;
+            }
+
+            // Parse input, repeat on error.
+            // TODO: Helpers for the below.
+            let mut split = line.split(".");
+            let quantity = match split.next() {
+                Some(q) => match q.parse::<usize>() {
+                    Ok(q) => q,
+                    Err(e) => {
+                        info!("{}", e);
+                        continue;
+                    }
+                },
+                None => continue
+            };
+
+            let value = match split.next() {
+                Some(v) => match v.parse::<usize>() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        info!("{}", e);
+                        continue;
+                    }
+                },
+                None => continue
+            };
+
+            // Either return a valid bet or take input again.
+            let bet = Bet {
+                value: DieVal::from_usize(value),
+                quantity: quantity
+            };
+            return match current_outcome {
+                TurnOutcome::First => TurnOutcome::Bet(bet),
+                TurnOutcome::Bet(current_bet) => {
+                    if bet > *current_bet {
+                        return TurnOutcome::Bet(bet);
+                    } else {
+                        continue;
+                    }
+                },
+                TurnOutcome::Perudo => panic!(),
+            };
         }
     }
 }
@@ -233,17 +322,32 @@ impl fmt::Display for Bet {
 
 impl Ord for Bet {
     fn cmp(&self, other: &Bet) -> Ordering {
-        // TODO: Ace ordering logic here.
-        // We only need to know when one bet is larger than another so that we can see if the most
-        // probable option is playable.
-        if (self.value == other.value && self.quantity > other.quantity) ||
+        if self.value == DieVal::One && other.value == DieVal::One {
+            // If both are ace, then just compare the values.
+            self.quantity.cmp(&other.quantity) 
+        } else if self.value == DieVal::One {
+            // If this is ace, compare its double.
+            // We don't +1 here as we want 1x1 to be less than 3x2, not equal.
+            // We also do not define equality here in order to enforce unidirectionality of
+            // ace-lifting.
+            if self.quantity * 2 >= other.quantity {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
+        } else if other.value == DieVal::One {
+            if other.quantity * 2 >= self.quantity {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        } else if (self.value == other.value && self.quantity > other.quantity) ||
             (self.value > other.value && self.quantity >= other.quantity) {
-            // If we've increased the die quantity then the bet is larger.
+            // If we've increased the die quantity only then the bet is larger.
             Ordering::Greater
         } else if (self.value == other.value && self.quantity == other.quantity) {
             Ordering::Equal
         } else {
-            // We should never actually use this.
             Ordering::Less
         }
     }
@@ -270,19 +374,18 @@ impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Hands: {:?}", (&self.players)
             .into_iter()
-            .map(|p| format!("{}: {:?}", p.id, (&p.hand.items)
-                             .into_iter()
-                             .map(|d| d.val.int())
-                             .collect::<Vec<u32>>()))
-            .collect::<Vec<String>>())
+            .map(|p| format!("{}", p))
+            .collect::<Vec<String>>()
+            .join("\n"))
     }
 }
 
 impl Game {
-    fn new(num_players: usize) -> Self {
+    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut players: Vec<Player> = Vec::new();
         for id in 0..num_players {
-            players.push(Player::new(id));
+            let human = human_indices.contains(&id);
+            players.push(Player::new(id, human));
         }
         Self { players: players }
     }
@@ -304,8 +407,13 @@ impl Game {
             .count()
     }
 
+    // Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_dice(&self, val: &DieVal) -> usize {
-        self.num_dice(&DieVal::One) + self.num_dice(val)
+        if val == &DieVal::One {
+            self.num_dice(&DieVal::One)
+        } else {
+            self.num_dice(&DieVal::One) + self.num_dice(val)
+        }
     }
 
     fn is_correct(&self, bet: &Bet) -> bool {
@@ -330,7 +438,6 @@ impl Game {
     }
 
     fn run(&mut self) {
-        info!("Game commencing");
         let mut current_index: usize = 0;
         let mut current_outcome = TurnOutcome::First;
         // TODO: Remove hack via an Option.
@@ -412,17 +519,25 @@ impl Game {
 }
 
 fn main() {
-    env_logger::init();
+    pretty_env_logger::init();
     let args: Vec<String> = env::args().collect();
 
     info!("Perudo 0.1");
-    let mut game = Game::new(args[1].parse::<usize>().unwrap());
+    if args.len() < 2 {
+        info!("Please supply number of players");
+        return
+    }
+
+    let num_players = args[1].parse::<usize>().unwrap();
+    let mut human_indices = HashSet::new();
+    human_indices.insert(0);
+    let mut game = Game::new(num_players, human_indices);
     game.run();
 }
 
 speculate! {
     before {
-        env_logger::try_init();
+        pretty_env_logger::try_init();
     }
 
     describe "dealing" {
@@ -441,7 +556,6 @@ speculate! {
         }
 
         it "orders bets correctly" {
-            // TODO: Test ones behaviour.
             let bet_1 = bet(DieVal::Two, 1);
             let bet_2 = bet(DieVal::Two, 2);
             let bet_3 = bet(DieVal::Two, 6);
@@ -464,12 +578,49 @@ speculate! {
             assert!(bet_8 < bet_9);
 
             assert!(bet_2 > bet_1);
+            assert!(bet_3 > bet_2);
+            assert!(bet_4 > bet_3);
+            assert!(bet_5 > bet_4);
+            assert!(bet_6 > bet_5);
+            assert!(bet_7 > bet_6);
+            assert!(bet_8 > bet_7);
+            assert!(bet_9 > bet_8);
+        }
+
+        it "orders ace bets correctly" {
+            let bet_1 = bet(DieVal::Two, 1);
+            let bet_2 = bet(DieVal::One, 1);
+            let bet_3 = bet(DieVal::Two, 3);
+            let bet_4 = bet(DieVal::Two, 4);
+            let bet_5 = bet(DieVal::One, 2);
+            let bet_6 = bet(DieVal::One, 3);
+            let bet_7 = bet(DieVal::Five, 7);
+            let bet_8 = bet(DieVal::One, 4);
+            let bet_9 = bet(DieVal::Six, 9);
+
+            assert!(bet_1 < bet_2);
+            assert!(bet_2 < bet_3);
+            assert!(bet_3 < bet_4);
+            assert!(bet_4 < bet_5);
+            assert!(bet_5 < bet_6);
+            assert!(bet_6 < bet_7);
+            assert!(bet_7 < bet_8);
+            assert!(bet_8 < bet_9);
+
+            assert!(bet_2 > bet_1);
+            assert!(bet_3 > bet_2);
+            assert!(bet_4 > bet_3);
+            assert!(bet_5 > bet_4);
+            assert!(bet_6 > bet_5);
+            assert!(bet_7 > bet_6);
+            assert!(bet_8 > bet_7);
+            assert!(bet_9 > bet_8);
         }
     }
 
     describe "a game" {
         it "runs to completion" {
-            let mut game = Game::new(6);
+            let mut game = Game::new(6, HashSet::new());
             game.run();
         }
 
@@ -478,6 +629,7 @@ speculate! {
                 players: vec![
                     Player {
                         id: 0,
+                        human: false,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -490,6 +642,7 @@ speculate! {
                     },
                     Player {
                         id: 1,
+                        human: false,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -502,6 +655,7 @@ speculate! {
                     },
                     Player {
                         id: 2,
+                        human: false,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::Five },
