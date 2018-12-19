@@ -3,6 +3,7 @@ extern crate speculate;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
+#[macro_use] extern crate itertools;
 
 #[macro_use(c)]
 extern crate cute;
@@ -308,10 +309,28 @@ impl Player {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Bet {
     value: DieVal,
     quantity: usize,
+}
+
+impl Bet {
+    // Get all possible bets above the one given.
+    fn all_above(&self, num_dice: usize) -> Vec<Self> {
+        // Generate all bets and filter down to only those which are greater than the one given.
+        iproduct!(DieVal::all().into_iter(), 1..=num_dice)
+            .map(|(value, quantity)| Bet {
+                value: value,
+                quantity: quantity,
+            })
+            .filter(|b| b > self)
+            .collect::<Vec<Bet>>()
+    }
+
+    fn prob(self, num_dice: usize) -> f64 {
+        0.00
+    }
 }
 
 impl fmt::Display for Bet {
@@ -615,6 +634,28 @@ speculate! {
             assert!(bet_7 > bet_6);
             assert!(bet_8 > bet_7);
             assert!(bet_9 > bet_8);
+        }
+
+        it "generates all above" {
+            let original = Bet {
+                value: DieVal::Two,
+                quantity: 1,
+            };
+            assert_eq!(
+                vec![
+                    bet(DieVal::One, 1),
+                    bet(DieVal::One, 2),
+                    bet(DieVal::Two, 2),
+                    bet(DieVal::Three, 1),
+                    bet(DieVal::Three, 2),
+                    bet(DieVal::Four, 1),
+                    bet(DieVal::Four, 2),
+                    bet(DieVal::Five, 1),
+                    bet(DieVal::Five, 2),
+                    bet(DieVal::Six, 1),
+                    bet(DieVal::Six, 2),
+                ],
+                original.all_above(2));
         }
     }
 
