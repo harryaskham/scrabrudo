@@ -13,6 +13,9 @@ use rand::{
 use speculate::speculate;
 use std::collections::HashMap;
 use std::fmt;
+use std::cmp::Ord;
+use std::cmp::Ordering;
+use std::env;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -44,7 +47,7 @@ impl<T: Holdable> Dealer<T> for RandomDealer {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum DieVal {
     One,
     Two,
@@ -216,10 +219,40 @@ impl Player {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bet {
     value: DieVal,
     quantity: usize,
+}
+
+impl fmt::Display for Bet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {:?}s", self.quantity, self.value)
+    }
+}
+
+impl Ord for Bet {
+    fn cmp(&self, other: &Bet) -> Ordering {
+        // TODO: Ace ordering logic here.
+        // We only need to know when one bet is larger than another so that we can see if the most
+        // probably option is playable.
+        if (self.value == other.value && self.quantity > other.quantity) ||
+            (self.value > other.value && self.quantity >= other.quantity) {
+            // If we've increased the die quantity then the bet is larger.
+            Ordering::Greater
+        } else if (self.value == other.value && self.quantity == other.quantity) {
+            Ordering::Equal
+        } else {
+            // We should never actually use this.
+            Ordering::Less
+        }
+    }
+}
+
+impl PartialOrd for Bet {
+    fn partial_cmp(&self, other: &Bet) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -271,10 +304,17 @@ impl Game {
             .count()
     }
 
+    fn num_logical_dice(&self, val: &DieVal) -> usize {
+        self.num_dice(&DieVal::One) + self.num_dice(val)
+    }
+
     fn is_correct(&self, bet: &Bet) -> bool {
-        (bet.value == DieVal::One && bet.quantity <= self.num_dice(&DieVal::One))
-            || (bet.value != DieVal::One
-                && bet.quantity <= (self.num_dice(&DieVal::One) + self.num_dice(&bet.value)))
+        let max_correct_bet = Bet {
+            value: bet.value.clone(),
+            quantity: self.num_logical_dice(&bet.value),
+        };
+        debug!("Maximum allowable bet is {}", max_correct_bet);
+        bet <= &max_correct_bet
     }
 
     fn num_dice_per_player(&self) -> Vec<usize> {
@@ -305,18 +345,19 @@ impl Game {
             current_outcome = player.play(self, &current_outcome);
             match &current_outcome {
                 TurnOutcome::Bet(bet) => {
-                    info!("Player {} bets {:?}", player.id, bet);
+                    info!("Player {} bets {}", player.id, bet);
                     last_bet = bet.clone();
                     current_index = (current_index + 1) % self.num_players();
                 }
                 TurnOutcome::Perudo => {
                     info!("Player {} calls Perudo", player.id);
                     let loser_index: usize;
+                    let actual_amount = self.num_logical_dice(&last_bet.value);
                     if self.is_correct(&last_bet) {
-                        info!("Player {} is incorrect, the bet was good!", player.id);
+                        info!("Player {} is incorrect, there were {} {:?}s", player.id, actual_amount, last_bet.value);
                         loser_index = current_index;
                     } else {
-                        info!("Player {} is correct, the bet was bad!", player.id);
+                        info!("Player {} is correct, there were {} {:?}s", player.id, actual_amount, last_bet.value);
                         loser_index = (current_index + self.num_players() - 1) % self.num_players();
                     };
                     match self.end_turn(loser_index) {
@@ -372,8 +413,10 @@ impl Game {
 
 fn main() {
     env_logger::init();
+    let args: Vec<String> = env::args().collect();
+
     info!("Perudo 0.1");
-    let mut game = Game::new(3);
+    let mut game = Game::new(args[1].parse::<usize>().unwrap());
     game.run();
 }
 
@@ -408,6 +451,9 @@ speculate! {
             let bet_7 = bet(DieVal::Six, 7);
             let bet_8 = bet(DieVal::Six, 8);
             let bet_9 = bet(DieVal::Six, 10);
+
+            assert_eq!(bet_1, bet_1.clone());
+
             assert!(bet_1 < bet_2);
             assert!(bet_2 < bet_3);
             assert!(bet_3 < bet_4);
@@ -416,6 +462,8 @@ speculate! {
             assert!(bet_6 < bet_7);
             assert!(bet_7 < bet_8);
             assert!(bet_8 < bet_9);
+
+            assert!(bet_2 > bet_1);
         }
     }
 
