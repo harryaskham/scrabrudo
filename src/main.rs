@@ -2,6 +2,8 @@ extern crate rand;
 extern crate speculate;
 #[macro_use]
 extern crate log;
+extern crate env_logger;
+
 #[macro_use(c)]
 extern crate cute;
 use rand::{
@@ -129,31 +131,36 @@ impl<T: Holdable> Hand<T> {
 
 #[derive(Debug, Clone)]
 pub struct Player {
+    id: usize,
     hand: Hand<Die>,
     // TODO: Palafico tracker
 }
 
 impl Player {
-    fn new() -> Self {
+    fn new(id: usize) -> Self {
         Self {
+            id: id,
             hand: Hand::<Die>::new(5),
         }
     }
 
     fn without_one(&self) -> Self {
         Self {
+            id: self.id,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
         }
     }
 
     fn with_one(&self) -> Self {
         Self {
+            id: self.id,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
         }
     }
 
     fn refresh(&self) -> Self {
         Self {
+            id: self.id,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
         }
     }
@@ -216,10 +223,10 @@ pub struct Game {
 }
 
 impl Game {
-    fn new(num_players: u32) -> Self {
+    fn new(num_players: usize) -> Self {
         let mut players: Vec<Player> = Vec::new();
-        for _ in 0..num_players {
-            players.push(Player::new());
+        for id in 0..num_players {
+            players.push(Player::new(id));
         }
         Self { players: players }
     }
@@ -242,9 +249,9 @@ impl Game {
     }
 
     fn is_correct(&self, bet: &Bet) -> bool {
-        (bet.value == DieVal::One && bet.quantity == self.num_dice(&DieVal::One))
+        (bet.value == DieVal::One && bet.quantity <= self.num_dice(&DieVal::One))
             || (bet.value != DieVal::One
-                && bet.quantity == (self.num_dice(&DieVal::One) + self.num_dice(&bet.value)))
+                && bet.quantity <= (self.num_dice(&DieVal::One) + self.num_dice(&bet.value)))
     }
 
     fn num_dice_per_player(&self) -> Vec<usize> {
@@ -270,15 +277,19 @@ impl Game {
             current_outcome = player.play(self, &current_outcome);
             match &current_outcome {
                 TurnOutcome::Bet(bet) => {
-                    info!("Player {} bets {:?}", current_index, bet);
+                    info!("Player {} bets {:?}", player.id, bet);
                     last_bet = bet.clone();
                     current_index = (current_index + 1) % self.num_players();
                 }
                 TurnOutcome::Perudo => {
-                    let loser_index = if self.is_correct(&last_bet) {
-                        current_index
+                    info!("Player {} calls Perudo", player.id);
+                    let loser_index: usize;
+                    if self.is_correct(&last_bet) {
+                        info!("Player {} is incorrect, the bet was good!", player.id);
+                        loser_index = current_index;
                     } else {
-                        (current_index + self.num_players() - 1) % self.num_players()
+                        info!("Player {} is correct, the bet was bad!", player.id);
+                        loser_index = (current_index + self.num_players() - 1) % self.num_players();
                     };
                     match self.end_turn(loser_index) {
                         Some(i) => {
@@ -286,7 +297,6 @@ impl Game {
                             current_outcome = TurnOutcome::First;
                         }
                         None => {
-                            info!("Game over");
                             break;
                         }
                     };
@@ -302,10 +312,11 @@ impl Game {
         if loser.hand.items.len() == 1 {
             if self.players.len() > 2 {
                 // This player is disqualified.
+                info!("Player {} is disqualified", loser.id);
                 self.players.remove(loser_index);
                 return Some((loser_index % self.num_players()) as usize);
             } else {
-                // End of game!
+                info!("All players are eliminated.");
                 return None;
             }
         } else {
@@ -323,18 +334,26 @@ impl Game {
                     }
                 })
                 .collect();
+            info!("Player {} loses a die, now has {}.",
+                  self.players[loser_index].id,
+                  self.players[loser_index].hand.items.len());
             return Some(loser_index);
         }
     }
 }
 
 fn main() {
+    env_logger::init();
     info!("Perudo 0.1");
     let mut game = Game::new(6);
     game.run();
 }
 
 speculate! {
+    before {
+        env_logger::try_init();
+    }
+
     describe "dealing" {
         it "deals a hand of five" {
             let hand = Hand::<Die>::new(5);
@@ -352,6 +371,7 @@ speculate! {
             let mut game = Game {
                 players: vec![
                     Player {
+                        id: 0,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -363,6 +383,7 @@ speculate! {
                         },
                     },
                     Player {
+                        id: 1,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::One },
@@ -374,6 +395,7 @@ speculate! {
                         },
                     },
                     Player {
+                        id: 2,
                         hand: Hand::<Die> {
                             items: vec![
                                 Die{ val: DieVal::Five },
