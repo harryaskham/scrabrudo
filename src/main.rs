@@ -778,11 +778,11 @@ impl  GameAgent {
     fn log_q_values(&self) {
         unsafe {
             let expected_values = (*self.trainer).expected_values(&self.game);
-
-            // Log out all Q values
             match expected_values {
                 Some(values) => {
-                    for (action, q) in values {
+                    let mut sorted_values = values.into_iter().map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<(TurnOutcome, f64)>>();
+                    sorted_values.sort_by(|a, b| (a.1 as i64 * 100000).cmp(&(b.1 as i64 * 100000)));
+                    for (action, q) in sorted_values {
                         match action {
                             TurnOutcome::Bet(bet) => debug!("{}: {:.2}", bet, q),
                             _ => debug!("{:?}: {:.2}", action, q),
