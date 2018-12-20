@@ -156,8 +156,6 @@ impl<T: Holdable> Hand<T> {
 #[derive(Debug, Clone)]
 pub struct Player {
     id: usize,
-    // TODO: Remove this unused game reference.
-    game: *mut Game,
     hand: Hand<Die>,
     human: bool,
     caution: f64,
@@ -183,10 +181,9 @@ impl  fmt::Display for Player {
 }
 
 impl  Player {
-    fn new(id: usize, game: &mut Game, human: bool) -> Self {
+    fn new(id: usize, human: bool) -> Self {
         Self {
             id: id,
-            game: game,
             human: human,
             hand: Hand::<Die>::new(5),
             caution: rand::thread_rng().gen_range(0.8, 1.0),
@@ -196,7 +193,6 @@ impl  Player {
     fn without_one(&self) -> Self {
         Self {
             id: self.id,
-            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
             caution: self.caution,
@@ -206,7 +202,6 @@ impl  Player {
     fn with_one(&self) -> Self {
         Self {
             id: self.id,
-            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
             caution: self.caution,
@@ -216,7 +211,6 @@ impl  Player {
     fn refresh(&self) -> Self {
         Self {
             id: self.id,
-            game: self.game,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
             caution: self.caution,
@@ -511,10 +505,13 @@ pub struct Game {
     players: Vec<Player>,
     current_index: usize,
     current_outcome: TurnOutcome,
-    last_bet: Bet
+    last_bet: Bet,
+
+    // TODO: Move this out to a trait somehow.
+    last_reward: i64
 }
 
-impl  fmt::Display for Game {
+impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Hands: {:?}", (&self.players)
             .into_iter()
@@ -535,11 +532,12 @@ impl Game {
                 value: DieVal::One,
                 quantity: 0,
             },
+            last_reward: 0,
         };
 
         for id in 0..num_players {
             let human = human_indices.contains(&id);
-            let player = Player::new(id, &mut game, human);
+            let player = Player::new(id, human);
             game.players.push(player);
         }
 
@@ -577,7 +575,6 @@ impl Game {
             value: bet.value.clone(),
             quantity: self.num_logical_dice(&bet.value),
         };
-        debug!("Maximum allowable bet is {}", max_correct_bet);
         bet <= &max_correct_bet
     }
 
@@ -596,6 +593,26 @@ impl Game {
     fn run(&mut self) {
         loop {
             self.run_turn(None);
+            match self.current_outcome {
+                TurnOutcome::Win => return,
+                _ => continue
+            }
+        }
+    }
+
+    // Run with some annotation from the trained agent around the expected values of each
+    // outcome.
+    fn run_with_trainer(&mut self, trainer: AgentTrainer<Game>) {
+        loop {
+            let expected_values = trainer.expected_values(self);
+
+            // Choose the best possible value.
+            // If we don't have an action then let the machine take over.
+            let max_action = match expected_values {
+                Some(values) => Some(values.into_iter().max_by_key(|x| 100000 * (*x.1 as i64)).unwrap().0),
+                None => None
+            };
+            self.run_turn(max_action);
             match self.current_outcome {
                 TurnOutcome::Win => return,
                 _ => continue
@@ -622,6 +639,10 @@ impl Game {
                 info!("Player {} bets {}", player.id, bet);
                 self.last_bet = bet.clone();
                 self.current_index = (self.current_index + 1) % self.num_players();
+
+                // Regular bets get no reward.
+                // TODO: Scale according to the inverse bet magnitude?
+                self.last_reward = 0;
             }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id);
@@ -630,9 +651,15 @@ impl Game {
                 if self.is_correct(&self.last_bet) {
                     info!("Player {} is incorrect, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
                     loser_index = self.current_index;
+
+                    // Incorrect Perudo gets a bad reward.
+                    self.last_reward = -1;
                 } else {
                     info!("Player {} is correct, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
                     loser_index = (self.current_index + self.num_players() - 1) % self.num_players();
+
+                    // Correct Perudo gets a good reward.
+                    self.last_reward = 1;
                 };
                 match self.end_turn(loser_index) {
                     Some(i) => {
@@ -710,11 +737,7 @@ impl State for Game {
     type A = TurnOutcome;
 
     fn reward(&self) -> f64 {
-        // Simple reward: how many dice does the player who just went have?
-        let player = &self.players[self.current_index];
-        // TODO: THIS WONT WORK - this is selecting the next player. We need to keep track of the
-        // last player to play. This might result in charitable play...
-        player.hand.items.len() as f64
+        self.last_reward as f64
     }
 
     fn actions(&self) -> Vec<TurnOutcome> {
@@ -741,22 +764,46 @@ impl State for Game {
 // Agent that will learn by simulating every player's moves.
 struct GameAgent {
     game: Game,
+    trainer: *const AgentTrainer<Game>,
 }
 
-impl GameAgent {
-    fn new() -> Self {
+impl  GameAgent {
+    fn new(trainer: &AgentTrainer<Game>) -> Self {
         Self {
             game: Game::new(2, HashSet::new()),
+            trainer: trainer,
+        }
+    }
+
+    fn log_q_values(&self) {
+        unsafe {
+            let expected_values = (*self.trainer).expected_values(&self.game);
+
+            // Log out all Q values
+            match expected_values {
+                Some(values) => {
+                    for (action, q) in values {
+                        match action {
+                            TurnOutcome::Bet(bet) => debug!("{}: {:.2}", bet, q),
+                            _ => debug!("{:?}: {:.2}", action, q),
+                        };
+                    }
+                },
+                None => ()
+            };
         }
     }
 }
 
-impl <'a> Agent<Game> for GameAgent {
+impl  Agent<Game> for GameAgent {
 	fn current_state(&self) -> &Game {
         &self.game
 	}
 
 	fn take_action(&mut self, action: &TurnOutcome) {
+        // Before taking any action, spit out the current action-space Q values.
+        self.log_q_values();
+
         // Force the game to run the given outcome.
         self.game.run_turn(Some(action));
         match self.game.current_outcome {
@@ -770,6 +817,7 @@ impl <'a> Agent<Game> for GameAgent {
 
 fn main() {
     pretty_env_logger::init();
+
     /*
     let args: Vec<String> = env::args().collect();
 
@@ -786,8 +834,9 @@ fn main() {
     game.run();
     */
 
-    let mut agent = GameAgent::new();
+    info!("Beginning training");
     let mut trainer = AgentTrainer::new();
+    let mut agent = GameAgent::new(&trainer);
     trainer.train(&mut agent,
                   &QLearning::new(0.2, 0.01, 2.),
                   &mut FixedIterations::new(100000000),
@@ -909,7 +958,6 @@ speculate! {
             let mut game = Game::new(0, HashSet::new());
             let player = Player {
                 id: 0,
-                game: &mut game,
                 human: false,
                 caution: 0.0,
                 hand: Hand::<Die> {
@@ -947,8 +995,8 @@ speculate! {
 
     describe "rl agent" {
         it "runs a few Q-Learning iterations" {
-            let mut agent = GameAgent::new();
             let mut trainer = AgentTrainer::new();
+            let mut agent = GameAgent::new(&trainer);
             trainer.train(&mut agent,
                           &QLearning::new(0.2, 0.01, 2.),
                           &mut FixedIterations::new(10),
