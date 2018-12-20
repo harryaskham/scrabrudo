@@ -626,12 +626,13 @@ impl Game {
 
     // Run with some annotation from the trained agent around the expected values of each
     // outcome.
-    fn run_with_trainer(&mut self, trainer: AgentTrainer<Game>) {
+    fn run_with_trainer(&mut self, trainer: &AgentTrainer<Game>) {
         loop {
-            let expected_values = trainer.expected_values(self);
+            log_q_values(trainer, self);
 
             // Choose the best possible value.
             // If we don't have an action then let the machine take over.
+            let expected_values = trainer.expected_values(self);
             let max_action = match expected_values {
                 Some(values) => Some(
                     values
@@ -803,6 +804,26 @@ impl State for Game {
     }
 }
 
+fn log_q_values(trainer: &AgentTrainer<Game>, game: &Game) {
+    let expected_values = trainer.expected_values(game);
+    match expected_values {
+        Some(values) => {
+            let mut sorted_values = values
+                .into_iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Vec<(TurnOutcome, f64)>>();
+            sorted_values.sort_by(|a, b| (a.1 as i64 * 100000).cmp(&(b.1 as i64 * 100000)));
+            for (action, q) in sorted_values {
+                match action {
+                    TurnOutcome::Bet(bet) => debug!("{}: {:.2}", bet, q),
+                    _ => debug!("{:?}: {:.2}", action, q),
+                };
+            }
+        }
+        None => (),
+    };
+}
+
 // Agent that will learn by simulating every player's moves.
 struct GameAgent {
     game: Game,
@@ -816,28 +837,6 @@ impl GameAgent {
             trainer: trainer,
         }
     }
-
-    fn log_q_values(&self) {
-        unsafe {
-            let expected_values = (*self.trainer).expected_values(&self.game);
-            match expected_values {
-                Some(values) => {
-                    let mut sorted_values = values
-                        .into_iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<Vec<(TurnOutcome, f64)>>();
-                    sorted_values.sort_by(|a, b| (a.1 as i64 * 100000).cmp(&(b.1 as i64 * 100000)));
-                    for (action, q) in sorted_values {
-                        match action {
-                            TurnOutcome::Bet(bet) => debug!("{}: {:.2}", bet, q),
-                            _ => debug!("{:?}: {:.2}", action, q),
-                        };
-                    }
-                }
-                None => (),
-            };
-        }
-    }
 }
 
 impl Agent<Game> for GameAgent {
@@ -847,7 +846,9 @@ impl Agent<Game> for GameAgent {
 
     fn take_action(&mut self, action: &TurnOutcome) {
         // Before taking any action, spit out the current action-space Q values.
-        self.log_q_values();
+        unsafe {
+            log_q_values(&(*self.trainer), &self.game);
+        }
 
         // Force the game to run the given outcome.
         self.game.run_turn(Some(action));
@@ -885,9 +886,13 @@ fn main() {
     trainer.train(
         &mut agent,
         &QLearning::new(0.2, 0.01, 2.),
-        &mut FixedIterations::new(100000000),
+        &mut FixedIterations::new(100000),
         &RandomExploration::new(),
     );
+
+    info!("Self-play");
+    let mut game = Game::new(2, HashSet::new());
+    game.run_with_trainer(&trainer);
 }
 
 speculate! {
