@@ -3,7 +3,8 @@ extern crate speculate;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
-#[macro_use] extern crate itertools;
+#[macro_use]
+extern crate itertools;
 extern crate probability;
 #[macro_use]
 extern crate approx;
@@ -11,26 +12,26 @@ extern crate rurel;
 
 #[macro_use(c)]
 extern crate cute;
-use rand::distributions::Standard;
-use rand::Rng;
-use speculate::speculate;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fmt;
-use std::cmp::Ord;
-use std::cmp::Ordering;
-use std::env;
-use std::io;
-use std::cmp::min;
 use probability::distribution::Distribution;
 use probability::prelude::*;
-use rurel::mdp::{State, Agent};
-use std::rc::Rc;
-use std::hash::{Hash, Hasher};
-use rurel::AgentTrainer;
-use rurel::strategy::learn::QLearning;
+use rand::distributions::Standard;
+use rand::Rng;
+use rurel::mdp::{Agent, State};
 use rurel::strategy::explore::RandomExploration;
+use rurel::strategy::learn::QLearning;
 use rurel::strategy::terminate::FixedIterations;
+use rurel::AgentTrainer;
+use speculate::speculate;
+use std::cmp::min;
+use std::cmp::Ord;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::env;
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::io;
+use std::rc::Rc;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -171,16 +172,22 @@ impl PartialEq for Player {
 
 impl Eq for Player {}
 
-impl  fmt::Display for Player {
+impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} ({:.2}): {:?}", self.id, self.caution, (&self.hand.items)
-            .into_iter()
-            .map(|d| d.val.int())
-            .collect::<Vec<u32>>())
+        write!(
+            f,
+            "{} ({:.2}): {:?}",
+            self.id,
+            self.caution,
+            (&self.hand.items)
+                .into_iter()
+                .map(|d| d.val.int())
+                .collect::<Vec<u32>>()
+        )
     }
 }
 
-impl  Player {
+impl Player {
     fn new(id: usize, human: bool) -> Self {
         Self {
             id: id,
@@ -268,7 +275,8 @@ impl  Player {
 
     // Gets all bets ordered by probability above a certain bet.
     fn ordered_bets_above(&self, bet: &Bet, total_num_dice: usize) -> Vec<Bet> {
-        let mut bets = bet.all_above(total_num_dice)
+        let mut bets = bet
+            .all_above(total_num_dice)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
             .map(|b| ((100000.0 * b.prob(total_num_dice, self)) as u64, b))
@@ -297,7 +305,8 @@ impl  Player {
         match current_outcome {
             TurnOutcome::First => {
                 // TODO: A better encoding of the no-first-one rule.
-                let bets = self.ordered_bets(total_num_dice)
+                let bets = self
+                    .ordered_bets(total_num_dice)
                     .into_iter()
                     .filter(|b| b.value != DieVal::One)
                     .collect::<Vec<Bet>>();
@@ -308,10 +317,10 @@ impl  Player {
                 let bet = match self.best_bet_above(current_bet, total_num_dice) {
                     Some(b) => b,
                     // TODO: Do better than calling Perudo if we reach the maximum bet.
-                    None => return TurnOutcome::Perudo
+                    None => return TurnOutcome::Perudo,
                 };
                 if bet.prob(total_num_dice, self) < current_bet.prob(total_num_dice, self) {
-                    return TurnOutcome::Perudo
+                    return TurnOutcome::Perudo;
                 }
 
                 // Otherwise choose from the remaining available bets.
@@ -326,7 +335,11 @@ impl  Player {
     // TODO: Make this a play function on some trait.
     fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
         loop {
-            info!("Dice left: {:?} ({})", game.num_dice_per_player(), game.total_num_dice());
+            info!(
+                "Dice left: {:?} ({})",
+                game.num_dice_per_player(),
+                game.total_num_dice()
+            );
             info!("Hand for Player {})", self);
             match current_outcome {
                 TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
@@ -336,7 +349,9 @@ impl  Player {
             };
 
             let mut line = String::new();
-            io::stdin().read_line(&mut line).expect("Failed to read input");
+            io::stdin()
+                .read_line(&mut line)
+                .expect("Failed to read input");
             let line = line.trim();
 
             if line == "p" {
@@ -354,7 +369,7 @@ impl  Player {
                         continue;
                     }
                 },
-                None => continue
+                None => continue,
             };
 
             let value = match split.next() {
@@ -365,13 +380,13 @@ impl  Player {
                         continue;
                     }
                 },
-                None => continue
+                None => continue,
             };
 
             // Either return a valid bet or take input again.
             let bet = Bet {
                 value: DieVal::from_usize(value),
-                quantity: quantity
+                quantity: quantity,
             };
             return match current_outcome {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
@@ -381,7 +396,7 @@ impl  Player {
                     } else {
                         continue;
                     }
-                },
+                }
                 TurnOutcome::Perudo => panic!(),
                 TurnOutcome::Win => panic!(),
             };
@@ -434,12 +449,16 @@ impl Bet {
         if self.quantity <= guaranteed_quantity {
             return 1.0;
         }
-       
+
         // TODO: Reframe the below as 1 minus the CDF of up to the bet.
         // Since we say the bet is correct if there are really n or higher.
         // We want 1 minus the probability there are less than n.
         // So that's 1 - cdf(n - 1)
-        let trial_p: f64 = if self.value == DieVal::One { 1.0 / 6.0 } else { 1.0 / 3.0 };
+        let trial_p: f64 = if self.value == DieVal::One {
+            1.0 / 6.0
+        } else {
+            1.0 / 3.0
+        };
         let num_other_dice = total_num_dice - player.hand.items.len();
         ((self.quantity - guaranteed_quantity)..=num_other_dice)
             .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
@@ -457,7 +476,7 @@ impl Ord for Bet {
     fn cmp(&self, other: &Bet) -> Ordering {
         if self.value == DieVal::One && other.value == DieVal::One {
             // If both are ace, then just compare the values.
-            self.quantity.cmp(&other.quantity) 
+            self.quantity.cmp(&other.quantity)
         } else if self.value == DieVal::One {
             // If this is ace, compare its double.
             // We don't +1 here as we want 1x1 to be less than 3x2, not equal.
@@ -474,11 +493,12 @@ impl Ord for Bet {
             } else {
                 Ordering::Greater
             }
-        } else if (self.value == other.value && self.quantity > other.quantity) ||
-            (self.value > other.value && self.quantity >= other.quantity) {
+        } else if (self.value == other.value && self.quantity > other.quantity)
+            || (self.value > other.value && self.quantity >= other.quantity)
+        {
             // If we've increased the die quantity only then the bet is larger.
             Ordering::Greater
-        } else if (self.value == other.value && self.quantity == other.quantity) {
+        } else if self.value == other.value && self.quantity == other.quantity {
             Ordering::Equal
         } else {
             Ordering::Less
@@ -508,16 +528,20 @@ pub struct Game {
     last_bet: Bet,
 
     // TODO: Move this out to a trait somehow.
-    last_reward: i64
+    last_reward: i64,
 }
 
 impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Hands: {:?}", (&self.players)
-            .into_iter()
-            .map(|p| format!("{}", p))
-            .collect::<Vec<String>>()
-            .join(" | "))
+        write!(
+            f,
+            "Hands: {:?}",
+            (&self.players)
+                .into_iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<String>>()
+                .join(" | ")
+        )
     }
 }
 
@@ -595,7 +619,7 @@ impl Game {
             self.run_turn(None);
             match self.current_outcome {
                 TurnOutcome::Win => return,
-                _ => continue
+                _ => continue,
             }
         }
     }
@@ -609,13 +633,19 @@ impl Game {
             // Choose the best possible value.
             // If we don't have an action then let the machine take over.
             let max_action = match expected_values {
-                Some(values) => Some(values.into_iter().max_by_key(|x| 100000 * (*x.1 as i64)).unwrap().0),
-                None => None
+                Some(values) => Some(
+                    values
+                        .into_iter()
+                        .max_by_key(|x| 100000 * (*x.1 as i64))
+                        .unwrap()
+                        .0,
+                ),
+                None => None,
             };
             self.run_turn(max_action);
             match self.current_outcome {
                 TurnOutcome::Win => return,
-                _ => continue
+                _ => continue,
             }
         }
     }
@@ -629,7 +659,7 @@ impl Game {
         // TODO: Decouple this.
         self.current_outcome = match agent_override {
             Some(outcome) => outcome.clone(),
-            None => player.play(self, &self.current_outcome)
+            None => player.play(self, &self.current_outcome),
         };
 
         // TODO: Include historic bets in the context given to the player.
@@ -649,14 +679,21 @@ impl Game {
                 let loser_index: usize;
                 let actual_amount = self.num_logical_dice(&self.last_bet.value);
                 if self.is_correct(&self.last_bet) {
-                    info!("Player {} is incorrect, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
+                    info!(
+                        "Player {} is incorrect, there were {} {:?}s",
+                        player.id, actual_amount, self.last_bet.value
+                    );
                     loser_index = self.current_index;
 
                     // Incorrect Perudo gets a bad reward.
                     self.last_reward = -1;
                 } else {
-                    info!("Player {} is correct, there were {} {:?}s", player.id, actual_amount, self.last_bet.value);
-                    loser_index = (self.current_index + self.num_players() - 1) % self.num_players();
+                    info!(
+                        "Player {} is correct, there were {} {:?}s",
+                        player.id, actual_amount, self.last_bet.value
+                    );
+                    loser_index =
+                        (self.current_index + self.num_players() - 1) % self.num_players();
 
                     // Correct Perudo gets a good reward.
                     self.last_reward = 1;
@@ -706,9 +743,11 @@ impl Game {
                     }
                 })
                 .collect();
-            info!("Player {} loses a die, now has {}",
-                  self.players[loser_index].id,
-                  self.players[loser_index].hand.items.len());
+            info!(
+                "Player {} loses a die, now has {}",
+                self.players[loser_index].id,
+                self.players[loser_index].hand.items.len()
+            );
             return Some(loser_index);
         }
     }
@@ -725,10 +764,12 @@ impl Hash for Game {
         // TODO: Include numbers of dice per player shifted to be consistent.
         self.total_num_dice().hash(state);
         let items = &self.players[self.current_index].hand.items;
-        items.into_iter()
+        items
+            .into_iter()
             .map(|i| i.val().int())
             .collect::<Vec<u32>>()
-            .sort().hash(state);
+            .sort()
+            .hash(state);
         self.last_bet.hash(state);
     }
 }
@@ -747,14 +788,15 @@ impl State for Game {
                 .map(|b| TurnOutcome::Bet(b))
                 .collect::<Vec<TurnOutcome>>(),
             TurnOutcome::Bet(current_bet) => {
-                let mut outcomes = current_bet.all_above(self.total_num_dice())
+                let mut outcomes = current_bet
+                    .all_above(self.total_num_dice())
                     .into_iter()
                     .map(|b| TurnOutcome::Bet(b))
                     .collect::<Vec<TurnOutcome>>();
                 // Ensure the agent can play Dudo.
                 outcomes.push(TurnOutcome::Perudo);
                 outcomes
-            },
+            }
             TurnOutcome::Perudo => panic!(),
             TurnOutcome::Win => panic!(),
         }
@@ -767,7 +809,7 @@ struct GameAgent {
     trainer: *const AgentTrainer<Game>,
 }
 
-impl  GameAgent {
+impl GameAgent {
     fn new(trainer: &AgentTrainer<Game>) -> Self {
         Self {
             game: Game::new(2, HashSet::new()),
@@ -780,7 +822,10 @@ impl  GameAgent {
             let expected_values = (*self.trainer).expected_values(&self.game);
             match expected_values {
                 Some(values) => {
-                    let mut sorted_values = values.into_iter().map(|(k, v)| (k.clone(), v.clone())).collect::<Vec<(TurnOutcome, f64)>>();
+                    let mut sorted_values = values
+                        .into_iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<Vec<(TurnOutcome, f64)>>();
                     sorted_values.sort_by(|a, b| (a.1 as i64 * 100000).cmp(&(b.1 as i64 * 100000)));
                     for (action, q) in sorted_values {
                         match action {
@@ -788,19 +833,19 @@ impl  GameAgent {
                             _ => debug!("{:?}: {:.2}", action, q),
                         };
                     }
-                },
-                None => ()
+                }
+                None => (),
             };
         }
     }
 }
 
-impl  Agent<Game> for GameAgent {
-	fn current_state(&self) -> &Game {
+impl Agent<Game> for GameAgent {
+    fn current_state(&self) -> &Game {
         &self.game
-	}
+    }
 
-	fn take_action(&mut self, action: &TurnOutcome) {
+    fn take_action(&mut self, action: &TurnOutcome) {
         // Before taking any action, spit out the current action-space Q values.
         self.log_q_values();
 
@@ -809,10 +854,10 @@ impl  Agent<Game> for GameAgent {
         match self.game.current_outcome {
             TurnOutcome::Win => {
                 self.game = Game::new(2, HashSet::new());
-            },
+            }
             _ => (),
         }
-	}
+    }
 }
 
 fn main() {
@@ -837,10 +882,12 @@ fn main() {
     info!("Beginning training");
     let mut trainer = AgentTrainer::new();
     let mut agent = GameAgent::new(&trainer);
-    trainer.train(&mut agent,
-                  &QLearning::new(0.2, 0.01, 2.),
-                  &mut FixedIterations::new(100000000),
-                  &RandomExploration::new());
+    trainer.train(
+        &mut agent,
+        &QLearning::new(0.2, 0.01, 2.),
+        &mut FixedIterations::new(100000000),
+        &RandomExploration::new(),
+    );
 }
 
 speculate! {
@@ -955,7 +1002,7 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
-            let mut game = Game::new(0, HashSet::new());
+            let _game = Game::new(0, HashSet::new());
             let player = Player {
                 id: 0,
                 human: false,
