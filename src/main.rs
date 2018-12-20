@@ -27,6 +27,10 @@ use probability::prelude::*;
 use rurel::mdp::{State, Agent};
 use std::rc::Rc;
 use std::hash::{Hash, Hasher};
+use rurel::AgentTrainer;
+use rurel::strategy::learn::QLearning;
+use rurel::strategy::explore::RandomExploration;
+use rurel::strategy::terminate::FixedIterations;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -152,7 +156,8 @@ impl<T: Holdable> Hand<T> {
 #[derive(Debug, Clone)]
 pub struct Player {
     id: usize,
-    game: *const Game,
+    // TODO: Remove this unused game reference.
+    game: *mut Game,
     hand: Hand<Die>,
     human: bool,
     caution: f64,
@@ -178,7 +183,7 @@ impl  fmt::Display for Player {
 }
 
 impl  Player {
-    fn new(id: usize, game: &Game, human: bool) -> Self {
+    fn new(id: usize, game: &mut Game, human: bool) -> Self {
         Self {
             id: id,
             game: game,
@@ -534,7 +539,8 @@ impl Game {
 
         for id in 0..num_players {
             let human = human_indices.contains(&id);
-            game.players.push(Player::new(id, &game, human));
+            let player = Player::new(id, &mut game, human);
+            game.players.push(player);
         }
 
         game
@@ -589,8 +595,7 @@ impl Game {
 
     fn run(&mut self) {
         loop {
-            // TODO: termination no longer exists.
-            self.run_turn();
+            self.run_turn(None);
             match self.current_outcome {
                 TurnOutcome::Win => return,
                 _ => continue
@@ -599,11 +604,19 @@ impl Game {
     }
 
     // Runs a turn and either finishes or sets up for the next turn.
-    fn run_turn(&mut self) {
-        // TODO: Include historic bets in the context given to the player.
-        debug!("{}", self);  // Print the game state.
+    // TODO: Split up to decouple the game logic from the RL input.
+    fn run_turn(&mut self, agent_override: Option<&TurnOutcome>) {
         let player = &self.players[self.current_index];
-        self.current_outcome = player.play(self, &self.current_outcome);
+
+        // Either get the action from the RL agent or the player.
+        // TODO: Decouple this.
+        self.current_outcome = match agent_override {
+            Some(outcome) => outcome.clone(),
+            None => player.play(self, &self.current_outcome)
+        };
+
+        // TODO: Include historic bets in the context given to the player.
+        debug!("{}", self);
         match &self.current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id, bet);
@@ -680,11 +693,15 @@ impl Game {
 
 impl Hash for Game {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // self.players.hash(state);
-        // TODO is it okay to hash this?
-        // We should probably hash the current player to differentiate states.
-        self.current_index.hash(state);
-        self.current_outcome.hash(state);
+        // Hash only the things that differentiate states as far as the current player is
+        // concerned.
+        // TODO: Include numbers of dice per player shifted to be consistent.
+        self.total_num_dice().hash(state);
+        let items = &self.players[self.current_index].hand.items;
+        items.into_iter()
+            .map(|i| i.val().int())
+            .collect::<Vec<u32>>()
+            .sort().hash(state);
         self.last_bet.hash(state);
     }
 }
@@ -721,25 +738,39 @@ impl State for Game {
     }
 }
 
-// TODO: Impl Hash for game for RL purposes.
-impl Agent<Game> for Player {
-	fn current_state(&self) -> &Game {
-        // TODO: add Game ref to Player
-        unsafe {
-            &(*self.game)  // TODO: remove unsafeness
+// Agent that will learn by simulating every player's moves.
+struct GameAgent {
+    game: Game,
+}
+
+impl GameAgent {
+    fn new() -> Self {
+        Self {
+            game: Game::new(2, HashSet::new()),
         }
+    }
+}
+
+impl <'a> Agent<Game> for GameAgent {
+	fn current_state(&self) -> &Game {
+        &self.game
 	}
 
 	fn take_action(&mut self, action: &TurnOutcome) {
-        // TODO: Move game to accept actions that override a given player's turn.
-        // Then when Game loop is controlled manually in main(), this function can move the state
-        // on.
-        // self.game.submit_turn(action)
+        // Force the game to run the given outcome.
+        self.game.run_turn(Some(action));
+        match self.game.current_outcome {
+            TurnOutcome::Win => {
+                self.game = Game::new(2, HashSet::new());
+            },
+            _ => (),
+        }
 	}
 }
 
 fn main() {
     pretty_env_logger::init();
+    /*
     let args: Vec<String> = env::args().collect();
 
     info!("Perudo 0.1");
@@ -753,6 +784,14 @@ fn main() {
     human_indices.insert(0);
     let mut game = Game::new(num_players, human_indices);
     game.run();
+    */
+
+    let mut agent = GameAgent::new();
+    let mut trainer = AgentTrainer::new();
+    trainer.train(&mut agent,
+                  &QLearning::new(0.2, 0.01, 2.),
+                  &mut FixedIterations::new(100000000),
+                  &RandomExploration::new());
 }
 
 speculate! {
@@ -867,10 +906,10 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
-            let game = Game::new(0, HashSet::new());
+            let mut game = Game::new(0, HashSet::new());
             let player = Player {
                 id: 0,
-                game: &game,
+                game: &mut game,
                 human: false,
                 caution: 0.0,
                 hand: Hand::<Die> {
@@ -903,6 +942,17 @@ speculate! {
         it "runs to completion" {
             let mut game = Game::new(6, HashSet::new());
             game.run();
+        }
+    }
+
+    describe "rl agent" {
+        it "runs a few Q-Learning iterations" {
+            let mut agent = GameAgent::new();
+            let mut trainer = AgentTrainer::new();
+            trainer.train(&mut agent,
+                          &QLearning::new(0.2, 0.01, 2.),
+                          &mut FixedIterations::new(10),
+                          &RandomExploration::new());
         }
     }
 }
