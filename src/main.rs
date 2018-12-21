@@ -340,7 +340,7 @@ impl Player {
                 game.num_dice_per_player(),
                 game.total_num_dice()
             );
-            info!("Hand for Player {})", self);
+            info!("Hand for Player {}", self);
             match current_outcome {
                 TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
                 TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo):"),
@@ -864,7 +864,6 @@ impl Agent<Game> for GameAgent {
 fn main() {
     pretty_env_logger::init();
 
-    /*
     let args: Vec<String> = env::args().collect();
 
     info!("Perudo 0.1");
@@ -878,7 +877,8 @@ fn main() {
     human_indices.insert(0);
     let mut game = Game::new(num_players, human_indices);
     game.run();
-    */
+
+    /*
 
     info!("Beginning training");
     let mut trainer = AgentTrainer::new();
@@ -893,6 +893,8 @@ fn main() {
     info!("Self-play");
     let mut game = Game::new(2, HashSet::new());
     game.run_with_trainer(&trainer);
+
+    */
 }
 
 speculate! {
