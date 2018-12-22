@@ -325,9 +325,17 @@ impl Player {
                 // should make the smallest raise, or call Palafico when the code exists.
                 let my_prob = bet.prob(total_num_dice, self);
                 let current_prob = current_bet.prob(total_num_dice, self);
-                if (my_prob - current_prob).abs() > 0.05 {  // TODO: This line is what dictates CPU bets.
-                    debug!("Calling Perudo because {} ({}) is less likely than {} ({})",
+                if current_prob > my_prob {
+                    debug!("Opponent has found best move.");
+                    debug!("{} ({}) is less likely than {} ({})",
                            bet, my_prob, current_bet, current_prob);
+                    if current_prob < 0.5 {
+                        debug!("Calling perudo due to threshold");
+                        return TurnOutcome::Perudo;
+                    } else {
+                        debug!("Making bet due to threshold");
+                        return TurnOutcome::Bet(bet);
+                    }
                     return TurnOutcome::Perudo;
                 }
 
