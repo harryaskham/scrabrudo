@@ -193,7 +193,8 @@ impl Player {
             id: id,
             human: human,
             hand: Hand::<Die>::new(5),
-            caution: rand::thread_rng().gen_range(0.8, 1.0),
+            caution: 1.0,
+            //caution: rand::thread_rng().gen_range(0.8, 1.0),
         }
     }
 
@@ -319,7 +320,14 @@ impl Player {
                     // TODO: Do better than calling Perudo if we reach the maximum bet.
                     None => return TurnOutcome::Perudo,
                 };
-                if bet.prob(total_num_dice, self) < current_bet.prob(total_num_dice, self) {
+
+                // TODO: This is a bug - if the opponent has the highest probability bet then we
+                // should make the smallest raise, or call Palafico when the code exists.
+                let my_prob = bet.prob(total_num_dice, self);
+                let current_prob = current_bet.prob(total_num_dice, self);
+                if (my_prob - current_prob).abs() > 0.05 {  // TODO: This line is what dictates CPU bets.
+                    debug!("Calling Perudo because {} ({}) is less likely than {} ({})",
+                           bet, my_prob, current_bet, current_prob);
                     return TurnOutcome::Perudo;
                 }
 
@@ -874,7 +882,6 @@ fn main() {
 
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
-    human_indices.insert(0);
     let mut game = Game::new(num_players, human_indices);
     game.run();
 
@@ -1037,6 +1044,30 @@ speculate! {
             approx(1.0 / 3.0, bet(DieVal::Two, 3).prob(6, &player));
 
             // TODO: More tests for the prob-calcs.
+        }
+
+        it "generates all best bets above a certain bet" {
+            let player = Player {
+                id: 0,
+                human: false,
+                caution: 1.0,
+                hand: Hand::<Die> {
+                    items: vec![
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six }
+                    ],
+                },
+            };
+            let total_num_dice = 6;
+            let opponent_bet = &Bet {
+                quantity: 5,
+                value: DieVal::Six,
+            };
+            let best_bet = player.best_bet_above(opponent_bet, total_num_dice);
+            assert_eq!(best_bet, None);
         }
     }
 
