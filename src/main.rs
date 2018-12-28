@@ -311,13 +311,8 @@ impl Player {
 
         let total_num_dice = game.total_num_dice();
         match current_outcome {
-            TurnOutcome::First => {
-                TurnOutcome::Bet(self.best_first_bet(total_num_dice))
-            }
-            TurnOutcome::Bet(current_bet) => {
-                // Make the best available outcome (bet or Perudo)
-                self.best_outcome_above(current_bet, total_num_dice)
-            },
+            TurnOutcome::First => TurnOutcome::Bet(self.best_first_bet(total_num_dice)),
+            TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),
             TurnOutcome::Perudo => panic!(),
             TurnOutcome::Win => panic!(),
         }
