@@ -245,22 +245,20 @@ impl Player {
         c! { val.clone() => self.num_dice(val), for val in DieVal::all().into_iter() }
     }
 
-    // Gets the most probable available bet.
-    fn best_bet(&self, total_num_dice: usize) -> Bet {
-        Bet::all(total_num_dice)
-            .into_iter()
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
-            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64)
-            .unwrap()
-    }
-
     // Gets the best bet above a certain bet.
-    // None if we actually don't have any possible bet.
-    fn best_bet_above(&self, bet: &Bet, total_num_dice: usize) -> Option<Bet> {
-        bet.all_above(total_num_dice)
+    // If no bet is better than Perudo then we return this.
+    fn best_outcome_above(&self, bet: &Bet, total_num_dice: usize) -> TurnOutcome {
+        let perudo_p = bet.perudo_prob(total_num_dice, self);
+        // See if any bet can beat Perudo
+        let best_bet = bet.all_above(total_num_dice)
             .into_iter()
+            .filter(|b| b.prob(total_num_dice, self) > perudo_p)
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
-            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64)
+            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64);
+        match best_bet {
+            Some(b) => TurnOutcome::Bet(b),
+            None => TurnOutcome::Perudo,
+        }
     }
 
     // Gets all bets ordered by probability.
@@ -314,35 +312,9 @@ impl Player {
                 return TurnOutcome::Bet(self.pick_bet_from(&bets));
             }
             TurnOutcome::Bet(current_bet) => {
-                // If there is no better bet available then call Perudo.
-                let bet = match self.best_bet_above(current_bet, total_num_dice) {
-                    Some(b) => b,
-                    // TODO: Do better than calling Perudo if we reach the maximum bet.
-                    None => return TurnOutcome::Perudo,
-                };
-
-                // TODO: This is a bug - if the opponent has the highest probability bet then we
-                // should make the smallest raise, or call Palafico when the code exists.
-                let my_prob = bet.prob(total_num_dice, self);
-                let current_prob = current_bet.prob(total_num_dice, self);
-                if current_prob > my_prob {
-                    debug!("Opponent has found best move.");
-                    debug!("{} ({}) is less likely than {} ({})",
-                           bet, my_prob, current_bet, current_prob);
-                    if current_prob < 0.5 {
-                        debug!("Calling perudo due to threshold");
-                        return TurnOutcome::Perudo;
-                    } else {
-                        debug!("Making bet due to threshold");
-                        return TurnOutcome::Bet(bet);
-                    }
-                    return TurnOutcome::Perudo;
-                }
-
-                // Otherwise choose from the remaining available bets.
-                let bets = self.ordered_bets_above(current_bet, total_num_dice);
-                return TurnOutcome::Bet(self.pick_bet_from(&bets));
-            }
+                // Make the best available outcome (bet or Perudo)
+                self.best_outcome_above(current_bet, total_num_dice)
+            },
             TurnOutcome::Perudo => panic!(),
             TurnOutcome::Win => panic!(),
         }
@@ -451,6 +423,11 @@ impl Bet {
             .into_iter()
             .filter(|b| b > self)
             .collect::<Vec<Bet>>()
+    }
+
+    // Gets the probability that this bet is incorrect as far as the given player is concerned.
+    fn perudo_prob(&self, total_num_dice: usize, player: &Player) -> f64 {
+        1.0 - self.prob(total_num_dice, player) 
     }
 
     // Get the probability of the bet being correct.
@@ -1069,13 +1046,13 @@ speculate! {
                     ],
                 },
             };
-            let total_num_dice = 6;
+            let total_num_dice = 5;
             let opponent_bet = &Bet {
                 quantity: 5,
                 value: DieVal::Six,
             };
-            let best_bet = player.best_bet_above(opponent_bet, total_num_dice);
-            assert_eq!(best_bet, None);
+            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            assert_eq!(best_outcome_above, TurnOutcome::Perudo);
         }
     }
 
