@@ -160,7 +160,6 @@ pub struct Player {
     hand: Hand<Die>,
     human: bool,
     caution: f64,
-    // TODO: Palafico tracker
 }
 
 impl PartialEq for Player {
@@ -285,31 +284,35 @@ impl Player {
     }
 
     // Pick the best bet from those given, given the player's caution rating.
-    fn pick_bet_from(&self, bets: &Vec<Bet>) -> Bet {
+    fn best_first_bet(&self, total_num_dice: usize) -> Bet {
         // caution of 1.0 will always choose the best bet
         // caution of 0.0 will always choose the worst
         // TODO: Introduce sigmoid
         // TODO: Maybe rename as skill...
+        let bets = self.first_bets(total_num_dice);
         bets[min((self.caution * bets.len() as f64) as usize, bets.len() - 1)].clone()
     }
 
-    // TODO: Trade-off between probability and quantity for a simple strategy.
+    // Get the allowed first bets - everything but ones.
+    // Bets are ordered by their probability of occuring.
+    fn first_bets(&self, total_num_dice: usize) -> Vec<Bet> {
+        self
+            .ordered_bets(total_num_dice)
+            .into_iter()
+            .filter(|b| b.value != DieVal::One)
+            .collect::<Vec<Bet>>()
+    }
+
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
-        // TODO: More elegant way of implementing multiple play strategies.
         if self.human {
+            // TODO: More elegant way of implementing multiple play strategies.
             return self.human_play(game, current_outcome);
         }
 
         let total_num_dice = game.total_num_dice();
         match current_outcome {
             TurnOutcome::First => {
-                // TODO: A better encoding of the no-first-one rule.
-                let bets = self
-                    .ordered_bets(total_num_dice)
-                    .into_iter()
-                    .filter(|b| b.value != DieVal::One)
-                    .collect::<Vec<Bet>>();
-                return TurnOutcome::Bet(self.pick_bet_from(&bets));
+                TurnOutcome::Bet(self.best_first_bet(total_num_dice))
             }
             TurnOutcome::Bet(current_bet) => {
                 // Make the best available outcome (bet or Perudo)
@@ -867,6 +870,7 @@ fn main() {
 
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
+    human_indices.insert(1);
     let mut game = Game::new(num_players, human_indices);
     game.run();
 
