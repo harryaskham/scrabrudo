@@ -1031,7 +1031,7 @@ speculate! {
             // TODO: More tests for the prob-calcs.
         }
 
-        it "generates all best bets above a certain bet" {
+        it "generates the most likely bet" {
             let player = Player {
                 id: 0,
                 human: false,
@@ -1048,11 +1048,14 @@ speculate! {
             };
             let total_num_dice = 5;
             let opponent_bet = &Bet {
-                quantity: 5,
+                quantity: 1,
                 value: DieVal::Six,
             };
             let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
-            assert_eq!(best_outcome_above, TurnOutcome::Perudo);
+            assert_eq!(best_outcome_above, TurnOutcome::Bet(Bet {
+                quantity: 5,
+                value: DieVal::Six,
+            }));
         }
     }
 
