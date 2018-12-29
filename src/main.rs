@@ -159,7 +159,6 @@ pub struct Player {
     id: usize,
     hand: Hand<Die>,
     human: bool,
-    caution: f64,
 }
 
 impl PartialEq for Player {
@@ -175,9 +174,8 @@ impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} ({:.2}): {:?}",
+            "{}: {:?}",
             self.id,
-            self.caution,
             (&self.hand.items)
                 .into_iter()
                 .map(|d| d.val.int())
@@ -192,8 +190,6 @@ impl Player {
             id: id,
             human: human,
             hand: Hand::<Die>::new(5),
-            caution: 1.0,
-            //caution: rand::thread_rng().gen_range(0.8, 1.0),
         }
     }
 
@@ -202,7 +198,6 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
-            caution: self.caution,
         }
     }
 
@@ -211,7 +206,6 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
-            caution: self.caution,
         }
     }
 
@@ -220,7 +214,6 @@ impl Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
-            caution: self.caution,
         }
     }
 
@@ -283,11 +276,11 @@ impl Player {
         bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
     }
 
-    // Pick the best bet from those given, given the player's caution rating.
+    // Pick the best bet from those given.
     fn best_first_bet(&self, total_num_dice: usize) -> Bet {
         // TODO: Maybe rename as skill...
         let bets = self.first_bets(total_num_dice);
-        bets[min((self.caution * bets.len() as f64) as usize, bets.len() - 1)].clone()
+        bets[bets.len() - 1].clone()
     }
 
     // Get the allowed first bets - everything but ones.
@@ -1001,7 +994,6 @@ speculate! {
             let player = Player {
                 id: 0,
                 human: false,
-                caution: 0.0,
                 hand: Hand::<Die> {
                     items: vec![
                         Die{ val: DieVal::One },
@@ -1031,7 +1023,6 @@ speculate! {
             let player = Player {
                 id: 0,
                 human: false,
-                caution: 1.0,
                 hand: Hand::<Die> {
                     items: vec![
                         Die{ val: DieVal::Six },
