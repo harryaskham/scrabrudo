@@ -264,21 +264,9 @@ impl Player {
         bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
     }
 
-    // Gets all bets ordered by probability above a certain bet.
-    fn ordered_bets_above(&self, bet: &Bet, total_num_dice: usize) -> Vec<Bet> {
-        let mut bets = bet
-            .all_above(total_num_dice)
-            .into_iter()
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
-            .map(|b| ((100000.0 * b.prob(total_num_dice, self)) as u64, b))
-            .collect::<Vec<(u64, Bet)>>();
-        bets.sort_by(|a, b| a.0.cmp(&b.0));
-        bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
-    }
-
     // Pick the best bet from those given.
+    // TODO: Better choice from tiebreaks.
     fn best_first_bet(&self, total_num_dice: usize) -> Bet {
-        // TODO: Maybe rename as skill...
         let bets = self.first_bets(total_num_dice);
         bets[bets.len() - 1].clone()
     }
