@@ -285,9 +285,6 @@ impl Player {
 
     // Pick the best bet from those given, given the player's caution rating.
     fn best_first_bet(&self, total_num_dice: usize) -> Bet {
-        // caution of 1.0 will always choose the best bet
-        // caution of 0.0 will always choose the worst
-        // TODO: Introduce sigmoid
         // TODO: Maybe rename as skill...
         let bets = self.first_bets(total_num_dice);
         bets[min((self.caution * bets.len() as f64) as usize, bets.len() - 1)].clone()
@@ -865,7 +862,7 @@ fn main() {
 
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
-    human_indices.insert(1);
+    human_indices.insert(2);
     let mut game = Game::new(num_players, human_indices);
     game.run();
 
