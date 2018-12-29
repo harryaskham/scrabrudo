@@ -16,6 +16,8 @@ use probability::distribution::Distribution;
 use probability::prelude::*;
 use rand::distributions::Standard;
 use rand::Rng;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 use rurel::mdp::{Agent, State};
 use rurel::strategy::explore::RandomExploration;
 use rurel::strategy::learn::QLearning;
@@ -265,10 +267,15 @@ impl Player {
     }
 
     // Pick the best bet from those given.
-    // TODO: Better choice from tiebreaks.
+    // TODO: Better than random choice from equally likely bets.
     fn best_first_bet(&self, total_num_dice: usize) -> Bet {
         let bets = self.first_bets(total_num_dice);
-        bets[bets.len() - 1].clone()
+        let max_prob = bets[bets.len() - 1].prob(total_num_dice, self);
+        let best_bets = bets.into_iter()
+            .filter(|b| b.prob(total_num_dice, self) == max_prob)
+            .collect::<Vec<Bet>>();
+        let mut rng = thread_rng();
+        best_bets.choose(&mut rng).unwrap().clone()
     }
 
     // Get the allowed first bets - everything but ones.
