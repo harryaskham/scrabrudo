@@ -248,6 +248,7 @@ impl Player {
             .into_iter()
             .filter(|b| b.prob(total_num_dice, self) > perudo_p)
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
+            // TODO: Introduce tie-breaking logic here.
             .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64);
         match best_bet {
             Some(b) => TurnOutcome::Bet(b),
@@ -850,7 +851,7 @@ fn main() {
 
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
-    human_indices.insert(2);
+    human_indices.insert(1);
     let mut game = Game::new(num_players, human_indices);
     game.run();
 
