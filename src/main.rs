@@ -243,17 +243,19 @@ impl Player {
     // If no bet is better than Perudo then we return this.
     fn best_outcome_above(&self, bet: &Bet, total_num_dice: usize) -> TurnOutcome {
         // Create pairs of all possible outcomes sorted by probability.
-        let mut outcomes = vec![(TurnOutcome::Perudo, bet.perudo_prob(total_num_dice, self))];
+        let mut outcomes = vec![
+            (TurnOutcome::Perudo, bet.perudo_prob(total_num_dice, self)),
+            (TurnOutcome::Palafico, bet.palafico_prob(total_num_dice, self)),
+        ];
         outcomes.extend(bet.all_above(total_num_dice)
             .into_iter()
             .map(|b| (TurnOutcome::Bet(b.clone()), b.prob(total_num_dice, self)))
             .collect::<Vec<(TurnOutcome, f64)>>());
-        // HACK
+
+        // HACK - get an arbitrary one of the best outcomes.
         outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
         let best_p = outcomes[outcomes.len() - 1].1;
-
         let best_outcomes = outcomes.into_iter().filter(|a| a.1 == best_p).map(|a| a.0).collect::<Vec<TurnOutcome>>();
-
         let mut rng = thread_rng();
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
@@ -302,6 +304,7 @@ impl Player {
             TurnOutcome::First => TurnOutcome::Bet(self.best_first_bet(total_num_dice)),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),
             TurnOutcome::Perudo => panic!(),
+            TurnOutcome::Palafico => panic!(),
             TurnOutcome::Win => panic!(),
         }
     }
@@ -317,8 +320,9 @@ impl Player {
             info!("Hand for Player {}", self);
             match current_outcome {
                 TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
-                TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo):"),
+                TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo, pal=palafico):"),
                 TurnOutcome::Perudo => panic!(),
+                TurnOutcome::Palafico => panic!(),
                 TurnOutcome::Win => panic!(),
             };
 
@@ -330,6 +334,9 @@ impl Player {
 
             if line == "p" {
                 return TurnOutcome::Perudo;
+            }
+            if line == "pal" {
+                return TurnOutcome::Palafico;
             }
 
             // Parse input, repeat on error.
@@ -372,6 +379,7 @@ impl Player {
                     }
                 }
                 TurnOutcome::Perudo => panic!(),
+                TurnOutcome::Palafico => panic!(),
                 TurnOutcome::Win => panic!(),
             };
         }
@@ -414,6 +422,25 @@ impl Bet {
     // Gets the probability that this bet is incorrect as far as the given player is concerned.
     fn perudo_prob(&self, total_num_dice: usize, player: &Player) -> f64 {
         1.0 - self.prob(total_num_dice, player) 
+    }
+
+    // Gets the probability that this bet is exactly correct as far as the given player is
+    // concerned.
+    fn palafico_prob(&self, total_num_dice: usize, player: &Player) -> f64 {
+        let guaranteed_quantity = player.num_logical_dice(self.value.clone());
+        if guaranteed_quantity > self.quantity {
+            return 0.0;
+        }
+
+        let trial_p: f64 = if self.value == DieVal::One {
+            1.0 / 6.0
+        } else {
+            1.0 / 3.0
+        };
+        let num_other_dice = total_num_dice - player.hand.items.len();
+        // This is a single Binomial trial - what's the probability of finding the rest of the dice
+        // in the remaining dice.
+        Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
     // Get the probability of the bet being correct.
@@ -496,6 +523,7 @@ pub enum TurnOutcome {
     First,
     Bet(Bet),
     Perudo,
+    Palafico,
     Win,
 }
 
@@ -579,6 +607,10 @@ impl Game {
             quantity: self.num_logical_dice(&bet.value),
         };
         bet <= &max_correct_bet
+    }
+
+    fn is_exactly_correct(&self, bet: &Bet) -> bool {
+        self.num_logical_dice(&bet.value) == bet.quantity
     }
 
     fn num_dice_per_player(&self) -> Vec<usize> {
@@ -678,35 +710,63 @@ impl Game {
                     // Correct Perudo gets a good reward.
                     self.last_reward = 1;
                 };
-                match self.end_turn(loser_index) {
-                    Some(i) => {
-                        // Reset and prepare for the next turn.
-                        self.current_index = i;
-                        self.current_outcome = TurnOutcome::First;
-                    }
-                    None => {
-                        info!("Player {} wins!", self.players[0].id);
-                        self.current_outcome = TurnOutcome::Win;
-                        return;
-                    }
-                };
-            }
+                self.end_turn(loser_index);
+            },
+            TurnOutcome::Palafico => {
+                info!("Player {} calls Palafico", player.id);
+                let loser_index: usize;
+                let actual_amount = self.num_logical_dice(&self.last_bet.value);
+                let player_index =
+                    (self.current_index + self.num_players() - 1) % self.num_players();
+                if self.is_exactly_correct(&self.last_bet) {
+                    info!(
+                        "Player {} is correct, there were {} {:?}s",
+                        player.id, actual_amount, self.last_bet.value
+                    );
+                    self.end_turn_palafico(player_index);
+                } else {
+                    self.end_turn(player_index);
+                }
+            },
             TurnOutcome::First => panic!(),
             TurnOutcome::Win => panic!(),
         };
     }
 
-    // Ends the turn and returns the index of the next player.
-    fn end_turn(&mut self, loser_index: usize) -> Option<usize> {
+    fn end_turn_palafico(&mut self, winner_index: usize) {
+        let winner = &self.players[winner_index];
+        // Refresh all players, winner gains a die.
+        self.players = self
+            .players
+            .clone()
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if i == winner_index && p.hand.items.len() < 5 {
+                    info!("Player {} gains a die, now has {}", winner.id, p.hand.items.len() + 1);
+                    p.with_one()
+                } else {
+                    p.refresh()
+                }
+            })
+            .collect();
+        self.current_index = winner_index;
+        self.current_outcome = TurnOutcome::First;
+    }
+
+    // Ends the turn and sets the next turn up.
+    fn end_turn(&mut self, loser_index: usize) {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             info!("Player {} is disqualified", loser.id);
             self.players.remove(loser_index);
 
             if self.players.len() > 1 {
-                return Some((loser_index % self.num_players()) as usize);
+                self.current_index = (loser_index % self.num_players()) as usize;
+                self.current_outcome = TurnOutcome::First;
             } else {
-                return None;
+                info!("Player {} wins!", self.players[0].id);
+                self.current_outcome = TurnOutcome::Win;
             }
         } else {
             // Refresh all players, loser loses an item.
@@ -728,7 +788,9 @@ impl Game {
                 self.players[loser_index].id,
                 self.players[loser_index].hand.items.len()
             );
-            return Some(loser_index);
+            // Reset and prepare for the next turn.
+            self.current_index = loser_index;
+            self.current_outcome = TurnOutcome::First;
         }
     }
 }
@@ -778,6 +840,7 @@ impl State for Game {
                 outcomes
             }
             TurnOutcome::Perudo => panic!(),
+            TurnOutcome::Palafico => panic!(),
             TurnOutcome::Win => panic!(),
         }
     }
@@ -1041,6 +1104,25 @@ speculate! {
                 quantity: 5,
                 value: DieVal::Six,
             }));
+        }
+
+        it "calls palafico with no other option" {
+            let player = Player {
+                id: 0,
+                human: false,
+                hand: Hand::<Die> {
+                    items: vec![
+                        Die{ val: DieVal::Six },
+                    ],
+                },
+            };
+            let total_num_dice = 2;
+            let opponent_bet = &Bet {
+                quantity: 1,
+                value: DieVal::Six,
+            };
+            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            assert_eq!(best_outcome_above, TurnOutcome::Palafico);           
         }
     }
 
