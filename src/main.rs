@@ -714,18 +714,21 @@ impl Game {
             },
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id);
-                let loser_index: usize;
                 let actual_amount = self.num_logical_dice(&self.last_bet.value);
-                let player_index =
-                    (self.current_index + self.num_players() - 1) % self.num_players();
                 if self.is_exactly_correct(&self.last_bet) {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
                         player.id, actual_amount, self.last_bet.value
                     );
-                    self.end_turn_palafico(player_index);
+                    let winner_index =
+                        (self.current_index + self.num_players() - 1) % self.num_players();
+                    self.end_turn_palafico(winner_index);
                 } else {
-                    self.end_turn(player_index);
+                    info!(
+                        "Player {} is incorrect, there were {} {:?}s",
+                        player.id, actual_amount, self.last_bet.value
+                    );
+                    self.end_turn(self.current_index);
                 }
             },
             TurnOutcome::First => panic!(),
@@ -916,7 +919,11 @@ fn main() {
 
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
-    human_indices.insert(1);
+
+    if args.len() == 3 {
+        human_indices.insert(args[1].parse::<usize>().unwrap());
+    }
+
     let mut game = Game::new(num_players, human_indices);
     game.run();
 
