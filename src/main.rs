@@ -242,18 +242,20 @@ impl Player {
     // Gets the best bet above a certain bet.
     // If no bet is better than Perudo then we return this.
     fn best_outcome_above(&self, bet: &Bet, total_num_dice: usize) -> TurnOutcome {
-        let perudo_p = bet.perudo_prob(total_num_dice, self);
-        // See if any bet can beat Perudo
-        let best_bet = bet.all_above(total_num_dice)
+        // Create pairs of all possible outcomes sorted by probability.
+        let mut outcomes = vec![(TurnOutcome::Perudo, bet.perudo_prob(total_num_dice, self))];
+        outcomes.extend(bet.all_above(total_num_dice)
             .into_iter()
-            .filter(|b| b.prob(total_num_dice, self) > perudo_p)
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no max().
-            // TODO: Introduce tie-breaking logic here.
-            .max_by_key(|b| (100000.0 * b.prob(total_num_dice, self)) as u64);
-        match best_bet {
-            Some(b) => TurnOutcome::Bet(b),
-            None => TurnOutcome::Perudo,
-        }
+            .map(|b| (TurnOutcome::Bet(b.clone()), b.prob(total_num_dice, self)))
+            .collect::<Vec<(TurnOutcome, f64)>>());
+        // HACK
+        outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
+        let best_p = outcomes[outcomes.len() - 1].1;
+
+        let best_outcomes = outcomes.into_iter().filter(|a| a.1 == best_p).map(|a| a.0).collect::<Vec<TurnOutcome>>();
+
+        let mut rng = thread_rng();
+        best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
     // Gets all bets ordered by probability.
@@ -1031,7 +1033,7 @@ speculate! {
             };
             let total_num_dice = 5;
             let opponent_bet = &Bet {
-                quantity: 1,
+                quantity: 4,
                 value: DieVal::Six,
             };
             let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
