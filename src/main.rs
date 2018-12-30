@@ -527,9 +527,6 @@ pub struct Game {
     current_index: usize,
     current_outcome: TurnOutcome,
     last_bet: Bet,
-
-    // TODO: Move this out to a trait somehow.
-    last_reward: i64,
 }
 
 impl fmt::Display for Game {
@@ -557,7 +554,6 @@ impl Game {
                 value: DieVal::One,
                 quantity: 0,
             },
-            last_reward: 0,
         };
 
         for id in 0..num_players {
