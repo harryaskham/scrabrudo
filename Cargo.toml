@@ -13,7 +13,6 @@ cute = "0.3.0"
 itertools = "0.8.0"
 probability = "0.15.5"
 approx = "0.3.1"
-rurel = "0.1.2"
 
 [dev-dependencies]
 speculate = "0.1.0"
