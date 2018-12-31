@@ -673,9 +673,7 @@ impl Game {
                         "Player {} is correct, there were {} {:?}s",
                         player.id, actual_amount, self.last_bet.value
                     );
-                    let winner_index =
-                        (self.current_index + self.num_players() - 1) % self.num_players();
-                    self.end_turn_palafico(winner_index);
+                    self.end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
