@@ -765,8 +765,8 @@ fn main() {
     let num_players = args[1].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
 
-    if args.len() == 3 {
-        human_indices.insert(args[1].parse::<usize>().unwrap());
+    if args.len() >= 3 {
+        human_indices.insert(args[2].parse::<usize>().unwrap());
     }
 
     let mut game = Game::new(num_players, human_indices);
