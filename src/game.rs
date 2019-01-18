@@ -21,10 +21,10 @@ pub enum TurnOutcome {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
-    players: Vec<Player>,
-    current_index: usize,
-    current_outcome: TurnOutcome,
-    last_bet: Bet,
+    pub players: Vec<Player>,
+    pub current_index: usize,
+    pub current_outcome: TurnOutcome,
+    pub last_bet: Bet,
 }
 
 impl fmt::Display for Game {
@@ -41,6 +41,14 @@ impl fmt::Display for Game {
     }
 }
 
+// TODO: Remove this - required for ordering purposes but should have a minimum value via an enum.
+fn hacky_first_bet() -> Bet {
+    return Bet {
+        value: DieVal::One,
+        quantity: 0,
+    }
+}
+
 impl Game {
     pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut game = Self {
@@ -48,10 +56,7 @@ impl Game {
             current_index: 0,
             current_outcome: TurnOutcome::First,
             // TODO: Remove hack via an Option.
-            last_bet: Bet {
-                value: DieVal::One,
-                quantity: 0,
-            },
+            last_bet: hacky_first_bet(),
         };
 
         for id in 0..num_players {
@@ -113,35 +118,26 @@ impl Game {
         self.num_dice_per_player().iter().sum()
     }
 
-    pub fn run(&mut self) {
-        loop {
-            self.run_turn(None);
-            match self.current_outcome {
-                TurnOutcome::Win => return,
-                _ => continue,
-            }
-        }
-    }
-
     // Runs a turn and either finishes or sets up for the next turn.
     // TODO: Split up to decouple the game logic from the RL input.
-    pub fn run_turn(&mut self, agent_override: Option<&TurnOutcome>) {
+    pub fn run_turn(&self) -> Game {
         let player = &self.players[self.current_index];
 
-        // Either get the action from the RL agent or the player.
-        // TODO: Decouple this.
-        self.current_outcome = match agent_override {
-            Some(outcome) => outcome.clone(),
-            None => player.play(self, &self.current_outcome),
-        };
+        // Get the current state based on this player's move.
+        let current_outcome = player.play(self, &self.current_outcome);
 
         // TODO: Include historic bets in the context given to the player.
         debug!("{}", self);
-        match &self.current_outcome {
+        match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id, bet);
-                self.last_bet = bet.clone();
-                self.current_index = (self.current_index + 1) % self.num_players();
+                let last_bet = bet.clone();
+                return Game {
+                    players: self.players.clone(),
+                    current_index: (self.current_index + 1) % self.num_players(),
+                    current_outcome: TurnOutcome::Bet(bet.clone()),
+                    last_bet: last_bet,
+                };
             }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id);
@@ -161,7 +157,7 @@ impl Game {
                     loser_index =
                         (self.current_index + self.num_players() - 1) % self.num_players();
                 };
-                self.end_turn(loser_index);
+                return self.end_turn(loser_index);
             },
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id);
@@ -171,24 +167,24 @@ impl Game {
                         "Player {} is correct, there were {} {:?}s",
                         player.id, actual_amount, self.last_bet.value
                     );
-                    self.end_turn_palafico(self.current_index);
+                    return self.end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
                         player.id, actual_amount, self.last_bet.value
                     );
-                    self.end_turn(self.current_index);
+                    return self.end_turn(self.current_index);
                 }
             },
-            TurnOutcome::First => panic!(),
-            TurnOutcome::Win => panic!(),
+            _ => panic!(),
         };
     }
 
-    pub fn end_turn_palafico(&mut self, winner_index: usize) {
+    /// Ends the turn in Palafico and returns the new game state.
+    pub fn end_turn_palafico(&self, winner_index: usize) -> Game {
         let winner = &self.players[winner_index];
         // Refresh all players, winner gains a die.
-        self.players = self
+        let players = self
             .players
             .clone()
             .into_iter()
@@ -202,27 +198,42 @@ impl Game {
                 }
             })
             .collect();
-        self.current_index = winner_index;
-        self.current_outcome = TurnOutcome::First;
+        return Game {
+            players: players,
+            current_index: winner_index,
+            current_outcome: TurnOutcome::First,
+            last_bet: hacky_first_bet(),
+        }
     }
 
-    // Ends the turn and sets the next turn up.
-    pub fn end_turn(&mut self, loser_index: usize) {
+    /// Ends the turn and returns the new game state.
+    pub fn end_turn(&self, loser_index: usize) -> Game {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             info!("Player {} is disqualified", loser.id);
-            self.players.remove(loser_index);
+
+            let mut players = self.players.clone();
+            players.remove(loser_index);
 
             if self.players.len() > 1 {
-                self.current_index = (loser_index % self.num_players()) as usize;
-                self.current_outcome = TurnOutcome::First;
+                return Game {
+                    players: players,
+                    current_index: (loser_index % self.num_players()) as usize,
+                    current_outcome: TurnOutcome::First,
+                    last_bet: hacky_first_bet(),
+                };
             } else {
                 info!("Player {} wins!", self.players[0].id);
-                self.current_outcome = TurnOutcome::Win;
+                return Game {
+                    players: players,
+                    current_index: 0,
+                    current_outcome: TurnOutcome::Win,
+                    last_bet: hacky_first_bet(),
+                };
             }
         } else {
             // Refresh all players, loser loses an item.
-            self.players = self
+            let players = self
                 .players
                 .clone()
                 .into_iter()
@@ -240,9 +251,14 @@ impl Game {
                 self.players[loser_index].id,
                 self.players[loser_index].hand.items.len()
             );
+
             // Reset and prepare for the next turn.
-            self.current_index = loser_index;
-            self.current_outcome = TurnOutcome::First;
+            return Game {
+                players: players,
+                current_index: loser_index,
+                current_outcome: TurnOutcome::First,
+                last_bet: hacky_first_bet(),
+            }
         }
     }
 }
@@ -255,7 +271,13 @@ speculate! {
     describe "a game" {
         it "runs to completion" {
             let mut game = Game::new(6, HashSet::new());
-            game.run();
+            loop {
+                game = game.run_turn();
+                match game.current_outcome {
+                    TurnOutcome::Win => return,
+                    _ => continue,
+                }
+            }
         }
     }
 }

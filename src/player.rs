@@ -161,9 +161,7 @@ impl Player {
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(self.best_first_bet(total_num_dice)),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),
-            TurnOutcome::Perudo => panic!(),
-            TurnOutcome::Palafico => panic!(),
-            TurnOutcome::Win => panic!(),
+            _ => panic!(),
         }
     }
 
@@ -179,9 +177,7 @@ impl Player {
             match current_outcome {
                 TurnOutcome::First => info!("Enter bet (2.6=two sixes):"),
                 TurnOutcome::Bet(_) => info!("Enter bet (2.6=two sixes, p=perudo, pal=palafico):"),
-                TurnOutcome::Perudo => panic!(),
-                TurnOutcome::Palafico => panic!(),
-                TurnOutcome::Win => panic!(),
+                _ => panic!(),
             };
 
             let mut line = String::new();

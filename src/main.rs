@@ -41,5 +41,11 @@ fn main() {
     }
 
     let mut game = Game::new(num_players, human_indices);
-    game.run();
+    loop {
+        game = game.run_turn();
+        match game.current_outcome {
+            TurnOutcome::Win => return,
+            _ => continue,
+        }
+    }
 }
