@@ -215,7 +215,7 @@ impl Game {
             let mut players = self.players.clone();
             players.remove(loser_index);
 
-            if self.players.len() > 1 {
+            if players.len() > 1 {
                 return Game {
                     players: players,
                     current_index: (loser_index % self.num_players()) as usize,
