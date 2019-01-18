@@ -498,6 +498,10 @@ impl Ord for Bet {
         {
             // If we've increased the die quantity only then the bet is larger.
             Ordering::Greater
+        } else if self.quantity > other.quantity {
+            // It is sufficient to increase the quanntity - we do not then care about the value,
+            // you can bid anything.
+            Ordering::Greater
         } else if self.value == other.value && self.quantity == other.quantity {
             Ordering::Equal
         } else {
@@ -794,12 +798,12 @@ speculate! {
         it "orders bets correctly" {
             let bet_1 = bet(DieVal::Two, 1);
             let bet_2 = bet(DieVal::Two, 2);
-            let bet_3 = bet(DieVal::Two, 6);
-            let bet_4 = bet(DieVal::Three, 6);
-            let bet_5 = bet(DieVal::Three, 7);
-            let bet_6 = bet(DieVal::Five, 7);
-            let bet_7 = bet(DieVal::Six, 7);
-            let bet_8 = bet(DieVal::Six, 8);
+            let bet_3 = bet(DieVal::Two, 3);
+            let bet_4 = bet(DieVal::Three, 3);
+            let bet_5 = bet(DieVal::Three, 4);
+            let bet_6 = bet(DieVal::Two, 5);
+            let bet_7 = bet(DieVal::Two, 6);
+            let bet_8 = bet(DieVal::Three, 8);
             let bet_9 = bet(DieVal::Six, 10);
 
             assert_eq!(bet_1, bet_1.clone());
