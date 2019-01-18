@@ -3,10 +3,12 @@
 use crate::player::*;
 use crate::bet::*;
 use crate::hand::*;
+use crate::testing;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use speculate::speculate;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum TurnOutcome {
@@ -245,3 +247,15 @@ impl Game {
     }
 }
 
+speculate! {
+    before {
+        testing::set_up();
+    }
+
+    describe "a game" {
+        it "runs to completion" {
+            let mut game = Game::new(6, HashSet::new());
+            game.run();
+        }
+    }
+}

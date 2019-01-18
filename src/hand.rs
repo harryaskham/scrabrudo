@@ -1,8 +1,11 @@
 /// Logic related to dealing hands.
 
+use crate::testing;
+
 use rand::distributions::Standard;
 use rand::Rng;
 use std::cmp::Ord;
+use speculate::speculate;
 
 /// Anything that can make up a hand.
 pub trait Holdable {
@@ -126,3 +129,15 @@ impl<T: Holdable> Hand<T> {
     }
 }
 
+speculate! {
+    before {
+        testing::set_up();
+    }
+
+    describe "dealing" {
+        it "deals a hand of five" {
+            let hand = Hand::<Die>::new(5);
+            assert_eq!(5, hand.items.len());
+        }
+    }
+}
