@@ -42,6 +42,7 @@ impl fmt::Display for Game {
 }
 
 // TODO: Remove this - required for ordering purposes but should have a minimum value via an enum.
+// This can also just be an option instead.
 fn hacky_first_bet() -> Bet {
     return Bet {
         value: DieVal::One,
@@ -66,10 +67,6 @@ impl Game {
         }
 
         game
-    }
-
-    pub fn num_players(&self) -> usize {
-        self.players.len()
     }
 
     pub fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
@@ -134,7 +131,7 @@ impl Game {
                 let last_bet = bet.clone();
                 return Game {
                     players: self.players.clone(),
-                    current_index: (self.current_index + 1) % self.num_players(),
+                    current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
                     last_bet: last_bet,
                 };
@@ -155,7 +152,7 @@ impl Game {
                         player.id, actual_amount, self.last_bet.value
                     );
                     loser_index =
-                        (self.current_index + self.num_players() - 1) % self.num_players();
+                        (self.current_index + self.players.len() - 1) % self.players.len();
                 };
                 return self.end_turn(loser_index);
             },
@@ -217,8 +214,8 @@ impl Game {
 
             if players.len() > 1 {
                 return Game {
-                    players: players,
-                    current_index: (loser_index % self.num_players()) as usize,
+                    players: players.clone(),
+                    current_index: (loser_index % players.len()) as usize,
                     current_outcome: TurnOutcome::First,
                     last_bet: hacky_first_bet(),
                 };
