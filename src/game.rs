@@ -203,13 +203,36 @@ impl Game {
         }
     }
 
+    /// Gets a cloned refreshed view on the players.
+    fn refreshed_players(&self) -> Vec<Player> {
+        self.players.clone().into_iter().map(|p| p.refresh()).collect::<Vec<Player>>()
+    }
+
+    /// Gets the players refreshed with one player losing.
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Player> {
+        self
+            .players
+            .clone()
+            .into_iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if i == loser_index {
+                    p.without_one()
+                } else {
+                    p.refresh()
+                }
+            })
+            .collect::<Vec<Player>>()
+    }
+
     /// Ends the turn and returns the new game state.
     pub fn end_turn(&self, loser_index: usize) -> Game {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             info!("Player {} is disqualified", loser.id);
 
-            let mut players = self.players.clone();
+            // Clone the players with new hands, without the loser.
+            let mut players = self.refreshed_players();
             players.remove(loser_index);
 
             if players.len() > 1 {
@@ -220,7 +243,7 @@ impl Game {
                     last_bet: hacky_first_bet(),
                 };
             } else {
-                info!("Player {} wins!", self.players[0].id);
+                info!("Player {} wins!", players[0].id);
                 return Game {
                     players: players,
                     current_index: 0,
@@ -230,23 +253,11 @@ impl Game {
             }
         } else {
             // Refresh all players, loser loses an item.
-            let players = self
-                .players
-                .clone()
-                .into_iter()
-                .enumerate()
-                .map(|(i, p)| {
-                    if i == loser_index {
-                        p.without_one()
-                    } else {
-                        p.refresh()
-                    }
-                })
-                .collect();
+            let players = self.refreshed_players_with_loss(loser_index);
             info!(
                 "Player {} loses a die, now has {}",
-                self.players[loser_index].id,
-                self.players[loser_index].hand.items.len()
+                players[loser_index].id,
+                players[loser_index].hand.items.len()
             );
 
             // Reset and prepare for the next turn.
