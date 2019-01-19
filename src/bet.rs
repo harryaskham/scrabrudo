@@ -67,6 +67,7 @@ impl Bet {
         let num_other_dice = total_num_dice - player.hand.items.len();
         // This is a single Binomial trial - what's the probability of finding the rest of the dice
         // in the remaining dice.
+        // TODO: This occasionally crashes in the mass() func, possibly due to overflow.
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
