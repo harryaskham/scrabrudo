@@ -158,7 +158,7 @@ impl Game {
                     loser_index =
                         (self.current_index + self.players.len() - 1) % self.players.len();
                 };
-                return self.end_turn(loser_index);
+                self.with_end_turn(loser_index)
             }
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id);
@@ -168,21 +168,21 @@ impl Game {
                         "Player {} is correct, there were {} {:?}s",
                         player.id, actual_amount, last_bet.value
                     );
-                    return self.end_turn_palafico(self.current_index);
+                    return self.with_end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
                         player.id, actual_amount, last_bet.value
                     );
-                    return self.end_turn(self.current_index);
+                    self.with_end_turn(self.current_index)
                 }
             }
             _ => panic!(),
-        };
+        }
     }
 
     /// Ends the turn in Palafico and returns the new game state.
-    pub fn end_turn_palafico(&self, winner_index: usize) -> Game {
+    pub fn with_end_turn_palafico(&self, winner_index: usize) -> Game {
         let winner = &self.players[winner_index];
         // Refresh all players, winner gains a die.
         let players = self
@@ -236,7 +236,7 @@ impl Game {
     }
 
     /// Ends the turn and returns the new game state.
-    pub fn end_turn(&self, loser_index: usize) -> Game {
+    pub fn with_end_turn(&self, loser_index: usize) -> Game {
         let loser = &self.players[loser_index];
         if loser.hand.items.len() == 1 {
             info!("Player {} is disqualified", loser.id);
