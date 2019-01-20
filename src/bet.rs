@@ -31,38 +31,8 @@ pub trait Bet: Ord + Clone {
     /// Gets the smallest possible bet.
     fn smallest() -> Box<Self>;
 
-    /// Gets all bets ordered by probability.
-    fn ordered_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
-        let mut bets = Self::all(state)
-            .into_iter()
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
-            .map(|b| {
-                (
-                    (100000.0 * b.prob(state, ProbVariant::Bet, player)) as u64,
-                    b,
-                )
-            })
-            .collect::<Vec<(u64, Box<Self>)>>();
-        bets.sort_by(|a, b| a.0.cmp(&b.0));
-        bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
-    }
-
-    /// Get the allowed first bets - everything but ones.
-    /// Bets are ordered by their probability of occuring.
-    fn first_bets(state: &GameState, player: &Player) -> Vec<Box<Self>>;
-
     /// Pick the best bet from those available for a first go.
-    /// TODO: Better than random choice from equally likely bets.
-    fn best_first_bet(state: &GameState, player: &Player) -> Box<Self> {
-        let bets = Self::first_bets(state, player);
-        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player);
-        let best_bets = bets
-            .into_iter()
-            .filter(|b| b.prob(state, ProbVariant::Bet, player) == max_prob)
-            .collect::<Vec<Box<Self>>>();
-        let mut rng = thread_rng();
-        best_bets.choose(&mut rng).unwrap().clone()
-    }
+    fn best_first_bet(state: &GameState, player: &Player) -> Box<Self>;
 
     /// Get the probability of this bet being correct.
     /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
@@ -96,13 +66,6 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn first_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
-        Self::ordered_bets(state, player)
-            .into_iter()
-            .filter(|b| b.value != DieVal::One)
-            .collect::<Vec<Box<Self>>>()
-    }
-
     fn prob(&self, state: &GameState, variant: ProbVariant, player: &Player) -> f64 {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
@@ -117,9 +80,46 @@ impl Bet for PerudoBet {
             value: DieVal::Two,
         })
     }
+
+    /// TODO: Better than random choice from equally likely bets.
+    fn best_first_bet(state: &GameState, player: &Player) -> Box<Self> {
+        let bets = Self::first_bets(state, player);
+        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player);
+        let best_bets = bets
+            .into_iter()
+            .filter(|b| b.prob(state, ProbVariant::Bet, player) == max_prob)
+            .collect::<Vec<Box<Self>>>();
+        let mut rng = thread_rng();
+        best_bets.choose(&mut rng).unwrap().clone()
+    }
 }
 
 impl PerudoBet {
+    /// Get the allowed first bets - everything but ones.
+    /// Bets are ordered by their probability of occuring.
+    fn first_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
+        Self::ordered_bets(state, player)
+            .into_iter()
+            .filter(|b| b.value != DieVal::One)
+            .collect::<Vec<Box<Self>>>()
+    }
+
+    /// Gets all bets ordered by probability.
+    fn ordered_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
+        let mut bets = Self::all(state)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
+            .map(|b| {
+                (
+                    (100000.0 * b.prob(state, ProbVariant::Bet, player)) as u64,
+                    b,
+                )
+            })
+            .collect::<Vec<(u64, Box<Self>)>>();
+        bets.sort_by(|a, b| a.0.cmp(&b.0));
+        bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
+    }
+
     /// All the valid bets without aces, for first-turn purposes.
     pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
         PerudoBet::all(state)
