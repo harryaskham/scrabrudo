@@ -3,14 +3,57 @@ use crate::bet::*;
 use crate::game::*;
 use crate::hand::*;
 use crate::hand::*;
+use crate::testing;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rand::Rng;
 use std::cmp::Ord;
 use std::collections::HashMap;
+use speculate::speculate;
 use std::fmt;
 use std::io;
+
+/// Common behaviour for players of any ruleset.
+/// TODO: Remove Perudo references from the common core.
+pub trait RenamePlayer: fmt::Debug + fmt::Display {
+    /// Gets the player's ID.
+    fn id(&self) -> usize;
+
+    /// A copy of the player with an item missing.
+    fn without_one(&self) -> Box<RenamePlayer>;
+
+    /// A copy of the player with an extra item.
+    fn with_one(&self) -> Box<RenamePlayer>;
+
+    /// A fresh instance of player with a new hand.
+    fn refresh(&self) -> Box<RenamePlayer>;
+
+    /// TODO: Figure out how to remove this hack and still allow trait objectification.
+    fn cloned(&self) -> Box<RenamePlayer>;
+
+    /// Gets the best turn outcome above a certain bet.
+    fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome;
+
+    /// Control logic for having a human play the game.
+    fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome;
+
+    /// Whether or not the player is controlled by a human.
+    fn is_human(&self) -> bool;
+
+    /// The total number of items in the hand.
+    fn num_items(&self) -> usize;
+
+    /// The total number of dice with the given explicit value (no wildcards).
+    fn num_items_with(&self, val: DieVal) -> usize;
+
+    /// Gets the actual number of dice around the table, allowing for wildcards.
+    /// TODO: Remove DieVal reference.
+    fn num_logical_items(&self, val: DieVal) -> usize;
+
+    /// Given the game state, return this player's chosen outcome.
+    fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome;
+}
 
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -42,62 +85,67 @@ impl fmt::Display for Player {
     }
 }
 
-impl Player {
-    pub fn new(id: usize, human: bool) -> Self {
-        Self {
-            id: id,
-            human: human,
-            hand: Hand::<Die>::new(5),
-        }
+impl RenamePlayer for Player {
+    fn id(&self) -> usize {
+        self.id
     }
 
-    pub fn without_one(&self) -> Self {
-        Self {
+    fn without_one(&self) -> Box<RenamePlayer> {
+        Box::new(Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
-        }
+        })
     }
 
-    pub fn with_one(&self) -> Self {
-        Self {
+    fn with_one(&self) -> Box<RenamePlayer> {
+        Box::new(Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
-        }
+        })
     }
 
-    pub fn refresh(&self) -> Self {
-        Self {
+    fn refresh(&self) -> Box<RenamePlayer> {
+        Box::new(Player {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
-        }
+        })
     }
 
-    pub fn num_dice(&self, val: DieVal) -> usize {
+    fn cloned(&self) -> Box<RenamePlayer> {
+        Box::new(Player {
+            id: self.id,
+            human: self.human,
+            hand: self.hand.clone(),
+        })
+    }
+
+    fn is_human(&self) -> bool {
+        self.human
+    }
+
+    fn num_items(&self) -> usize {
+        self.hand.items.len()
+    }
+
+    fn num_items_with(&self, val: DieVal) -> usize {
         (&self.hand.items)
             .into_iter()
             .filter(|d| d.val() == val)
             .count()
     }
 
-    // Gets the actual number of dice around the table, allowing for wildcards.
-    pub fn num_logical_dice(&self, val: DieVal) -> usize {
+    fn num_logical_items(&self, val: DieVal) -> usize {
         if val == DieVal::One {
-            self.num_dice(DieVal::One)
+            self.num_items_with(DieVal::One)
         } else {
-            self.num_dice(DieVal::One) + self.num_dice(val)
+            self.num_items_with(DieVal::One) + self.num_items_with(val)
         }
     }
 
-    pub fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
-        c! { val.clone() => self.num_dice(val), for val in DieVal::all().into_iter() }
-    }
-
-    // Gets the best bet above a certain bet.
-    // If no bet is better than Perudo then we return this.
-    pub fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome {
+    fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome {
         let state = &GameState {
             num_items: total_num_dice,
         };
@@ -137,12 +185,14 @@ impl Player {
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    pub fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
-        if self.human {
+    fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+        if self.is_human() {
             // TODO: More elegant way of implementing multiple play strategies.
             return self.human_play(game, current_outcome);
         }
 
+        // TODO: Can almost make this fully generic, need to tie together e.g. PerudoPlayer,
+        // PerudoBet, PerudoGame somehow.
         let total_num_dice = game.total_num_dice();
         let state = &GameState {
             num_items: total_num_dice,
@@ -154,8 +204,7 @@ impl Player {
         }
     }
 
-    // TODO: Make this a play function on some trait.
-    pub fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+    fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
         loop {
             info!(
                 "Dice left: {:?} ({})",
@@ -225,6 +274,69 @@ impl Player {
                 TurnOutcome::Palafico => panic!(),
                 TurnOutcome::Win => panic!(),
             };
+        }
+    }
+}
+
+impl Player {
+    pub fn new(id: usize, human: bool) -> Player {
+        Player {
+            id: id,
+            human: human,
+            hand: Hand::<Die>::new(5),
+        }
+    }
+}
+
+speculate! {
+    before {
+        testing::set_up();
+    }
+
+    describe "perudo player" {
+        it "generates the most likely bet" {
+            let player = &Player {
+                id: 0,
+                human: false,
+                hand: Hand::<Die> {
+                    items: vec![
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six },
+                        Die{ val: DieVal::Six }
+                    ],
+                },
+            };
+            let total_num_dice = 5;
+            let opponent_bet = &PerudoBet {
+                quantity: 4,
+                value: DieVal::Six,
+            };
+            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            assert_eq!(best_outcome_above, TurnOutcome::Bet(PerudoBet {
+                quantity: 5,
+                value: DieVal::Six,
+            }));
+        }
+
+        it "calls palafico with no other option" {
+            let player = &Player {
+                id: 0,
+                human: false,
+                hand: Hand::<Die> {
+                    items: vec![
+                        Die{ val: DieVal::Six },
+                    ],
+                },
+            };
+            let total_num_dice = 2;
+            let opponent_bet = &PerudoBet {
+                quantity: 1,
+                value: DieVal::Six,
+            };
+            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            assert_eq!(best_outcome_above, TurnOutcome::Palafico);
         }
     }
 }

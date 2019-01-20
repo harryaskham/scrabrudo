@@ -25,9 +25,8 @@ pub struct GameState {
     pub num_items: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
-    pub players: Vec<Player>,
+    pub players: Vec<Box<dyn RenamePlayer>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
@@ -57,31 +56,25 @@ impl Game {
         for id in 0..num_players {
             let human = human_indices.contains(&id);
             let player = Player::new(id, human);
-            game.players.push(player);
+            game.players.push(Box::new(player));
         }
 
         game
     }
 
-    pub fn num_dice_per_val(&self) -> HashMap<DieVal, usize> {
-        c! { val.clone() => self.num_dice(&val), for val in DieVal::all().into_iter() }
-    }
-
-    pub fn num_dice(&self, val: &DieVal) -> usize {
-        (&self.players)
-            .into_iter()
-            .map(|p| &p.hand.items)
-            .flatten()
-            .filter(|d| &d.val() == val)
-            .count()
+    pub fn num_items_with(&self, val: DieVal) -> usize {
+        self.players
+            .iter()
+            .map(|p| p.num_items_with(val.clone()))
+            .sum()
     }
 
     // Gets the actual number of dice around the table, allowing for wildcards.
-    pub fn num_logical_dice(&self, val: &DieVal) -> usize {
-        if val == &DieVal::One {
-            self.num_dice(&DieVal::One)
+    pub fn num_logical_items(&self, val: DieVal) -> usize {
+        if val == DieVal::One {
+            self.num_items_with(DieVal::One)
         } else {
-            self.num_dice(&DieVal::One) + self.num_dice(val)
+            self.num_items_with(DieVal::One) + self.num_items_with(val)
         }
     }
 
@@ -89,21 +82,20 @@ impl Game {
     pub fn is_correct(&self, bet: &PerudoBet) -> bool {
         let max_correct_bet = PerudoBet {
             value: bet.value.clone(),
-            quantity: self.num_logical_dice(&bet.value),
+            quantity: self.num_logical_items(bet.value.clone()),
         };
         bet <= &max_correct_bet
     }
 
     // TODO: Candidate for moving into Bet
     pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
-        self.num_logical_dice(&bet.value) == bet.quantity
+        self.num_logical_items(bet.value.clone()) == bet.quantity
     }
 
     pub fn num_dice_per_player(&self) -> Vec<usize> {
         self.players
-            .clone()
-            .into_iter()
-            .map(|p| p.hand.items.len())
+            .iter()
+            .map(|p| p.num_items())
             .collect()
     }
 
@@ -133,27 +125,27 @@ impl Game {
         debug!("{}", self);
         match current_outcome {
             TurnOutcome::Bet(bet) => {
-                info!("Player {} bets {}", player.id, bet);
+                info!("Player {} bets {}", player.id(), bet);
                 return Game {
-                    players: self.players.clone(),
+                    players: self.cloned_players(),
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
                 };
             }
             TurnOutcome::Perudo => {
-                info!("Player {} calls Perudo", player.id);
+                info!("Player {} calls Perudo", player.id());
                 let loser_index: usize;
-                let actual_amount = self.num_logical_dice(&last_bet.value);
+                let actual_amount = self.num_logical_items(last_bet.value.clone());
                 if self.is_correct(&last_bet) {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id, actual_amount, last_bet.value
+                        player.id(), actual_amount, last_bet.value
                     );
                     loser_index = self.current_index;
                 } else {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id, actual_amount, last_bet.value
+                        player.id(), actual_amount, last_bet.value
                     );
                     loser_index =
                         (self.current_index + self.players.len() - 1) % self.players.len();
@@ -161,18 +153,18 @@ impl Game {
                 self.with_end_turn(loser_index)
             }
             TurnOutcome::Palafico => {
-                info!("Player {} calls Palafico", player.id);
-                let actual_amount = self.num_logical_dice(&last_bet.value);
+                info!("Player {} calls Palafico", player.id());
+                let actual_amount = self.num_logical_items(last_bet.value.clone());
                 if self.is_exactly_correct(&last_bet) {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id, actual_amount, last_bet.value
+                        player.id(), actual_amount, last_bet.value
                     );
                     return self.with_end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id, actual_amount, last_bet.value
+                        player.id(), actual_amount, last_bet.value
                     );
                     self.with_end_turn(self.current_index)
                 }
@@ -187,15 +179,14 @@ impl Game {
         // Refresh all players, winner gains a die.
         let players = self
             .players
-            .clone()
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, p)| {
-                if i == winner_index && p.hand.items.len() < 5 {
+                if i == winner_index && p.num_items() < 5 {
                     info!(
                         "Player {} gains a die, now has {}",
-                        winner.id,
-                        p.hand.items.len() + 1
+                        winner.id(),
+                        p.num_items() + 1
                     );
                     p.with_one()
                 } else {
@@ -211,19 +202,25 @@ impl Game {
     }
 
     /// Gets a cloned refreshed view on the players.
-    fn refreshed_players(&self) -> Vec<Player> {
+    fn refreshed_players(&self) -> Vec<Box<dyn RenamePlayer>> {
         self.players
-            .clone()
-            .into_iter()
+            .iter()
             .map(|p| p.refresh())
-            .collect::<Vec<Player>>()
+            .collect()
+    }
+
+    /// Clones players without touching their hands.
+    fn cloned_players(&self) -> Vec<Box<dyn RenamePlayer>> {
+        self.players
+            .iter()
+            .map(|p| p.cloned())
+            .collect()
     }
 
     /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Player> {
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn RenamePlayer>> {
         self.players
-            .clone()
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, p)| {
                 if i == loser_index {
@@ -232,27 +229,28 @@ impl Game {
                     p.refresh()
                 }
             })
-            .collect::<Vec<Player>>()
+            .collect()
     }
 
     /// Ends the turn and returns the new game state.
     pub fn with_end_turn(&self, loser_index: usize) -> Game {
         let loser = &self.players[loser_index];
-        if loser.hand.items.len() == 1 {
-            info!("Player {} is disqualified", loser.id);
+        if loser.num_items() == 1 {
+            info!("Player {} is disqualified", loser.id());
 
             // Clone the players with new hands, without the loser.
             let mut players = self.refreshed_players();
             players.remove(loser_index);
+            let current_index = (loser_index % players.len()) as usize;
 
             if players.len() > 1 {
                 return Game {
-                    players: players.clone(),
-                    current_index: (loser_index % players.len()) as usize,
+                    players: players,
+                    current_index: current_index,
                     current_outcome: TurnOutcome::First,
                 };
             } else {
-                info!("Player {} wins!", players[0].id);
+                info!("Player {} wins!", players[0].id());
                 return Game {
                     players: players,
                     current_index: 0,
@@ -264,8 +262,8 @@ impl Game {
             let players = self.refreshed_players_with_loss(loser_index);
             info!(
                 "Player {} loses a die, now has {}",
-                players[loser_index].id,
-                players[loser_index].hand.items.len()
+                players[loser_index].id(),
+                players[loser_index].num_items()
             );
 
             // Reset and prepare for the next turn.

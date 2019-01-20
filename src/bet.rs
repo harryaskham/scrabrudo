@@ -32,12 +32,12 @@ pub trait Bet: Ord + Clone {
     fn smallest() -> Box<Self>;
 
     /// Pick the best bet from those available for a first go.
-    fn best_first_bet(state: &GameState, player: &Player) -> Box<Self>;
+    fn best_first_bet<T: RenamePlayer>(state: &GameState, player: &T) -> Box<Self>;
 
     /// Get the probability of this bet being correct.
     /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
     /// TODO: Need to make ProbVarient itself a boxed trait enum, same reason.
-    fn prob(&self, state: &GameState, variant: ProbVariant, player: &Player) -> f64;
+    fn prob<T: RenamePlayer>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64;
 }
 
 /// The different types of Bet one can make in Perudo.
@@ -66,7 +66,7 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn prob(&self, state: &GameState, variant: ProbVariant, player: &Player) -> f64 {
+    fn prob<T: RenamePlayer>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64 {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
             ProbVariant::Perudo => self.perudo_prob(state, player),
@@ -82,7 +82,7 @@ impl Bet for PerudoBet {
     }
 
     /// TODO: Better than random choice from equally likely bets.
-    fn best_first_bet(state: &GameState, player: &Player) -> Box<Self> {
+    fn best_first_bet<T: RenamePlayer>(state: &GameState, player: &T) -> Box<Self> {
         let bets = Self::first_bets(state, player);
         let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player);
         let best_bets = bets
@@ -97,7 +97,7 @@ impl Bet for PerudoBet {
 impl PerudoBet {
     /// Get the allowed first bets - everything but ones.
     /// Bets are ordered by their probability of occuring.
-    fn first_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
+    fn first_bets<T: RenamePlayer>(state: &GameState, player: &T) -> Vec<Box<Self>> {
         Self::ordered_bets(state, player)
             .into_iter()
             .filter(|b| b.value != DieVal::One)
@@ -105,7 +105,7 @@ impl PerudoBet {
     }
 
     /// Gets all bets ordered by probability.
-    fn ordered_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
+    fn ordered_bets<T: RenamePlayer>(state: &GameState, player: &T) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
@@ -129,14 +129,14 @@ impl PerudoBet {
     }
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    pub fn perudo_prob(&self, state: &GameState, player: &Player) -> f64 {
+    pub fn perudo_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
-    pub fn palafico_prob(&self, state: &GameState, player: &Player) -> f64 {
-        let guaranteed_quantity = player.num_logical_dice(self.value.clone());
+    pub fn palafico_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
+        let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if guaranteed_quantity > self.quantity {
             return 0.0;
         }
@@ -146,10 +146,10 @@ impl PerudoBet {
         } else {
             1.0 / 3.0
         };
-        let num_other_dice = state.num_items - player.hand.items.len();
+        let num_other_dice = state.num_items - player.num_items();
         // This is a single Binomial trial - what's the probability of finding the rest of the dice
         // in the remaining dice.
-        // TODO: This occasionally crashes in the mass() func, possibly due to overflow.
+        // TODO: &This occasionally crashes in the mass() func, possibly due to overflow.
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
@@ -158,10 +158,10 @@ impl PerudoBet {
     /// quantity.
     /// We also take into account only the other dice and count those we have in the given hand as
     /// guaranteed.
-    pub fn bet_prob(&self, state: &GameState, player: &Player) -> f64 {
+    pub fn bet_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
-        let guaranteed_quantity = player.num_logical_dice(self.value.clone());
+        let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if self.quantity <= guaranteed_quantity {
             return 1.0;
         }
@@ -175,7 +175,7 @@ impl PerudoBet {
         } else {
             1.0 / 3.0
         };
-        let num_other_dice = state.num_items - player.hand.items.len();
+        let num_other_dice = state.num_items - player.num_items();
         ((self.quantity - guaranteed_quantity)..=num_other_dice)
             .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
             .sum::<f64>()
@@ -337,7 +337,7 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
-            let player = Player {
+            let player = &Player {
                 id: 0,
                 human: false,
                 hand: Hand::<Die> {
@@ -354,62 +354,17 @@ speculate! {
             let state = &GameState{num_items: 6};
 
             // Bets on Ones, given one in the hand.
-            approx(1.0, bet(DieVal::One, 0).prob(state, ProbVariant::Bet, &player));
-            approx(1.0, bet(DieVal::One, 1).prob(state, ProbVariant::Bet, &player));
-            approx(1.0 / 6.0, bet(DieVal::One, 2).prob(state, ProbVariant::Bet, &player));
+            approx(1.0, bet(DieVal::One, 0).prob(state, ProbVariant::Bet, player));
+            approx(1.0, bet(DieVal::One, 1).prob(state, ProbVariant::Bet, player));
+            approx(1.0 / 6.0, bet(DieVal::One, 2).prob(state, ProbVariant::Bet, player));
 
             // We have two 2s in the hand already.
-            approx(1.0, bet(DieVal::Two, 0).prob(state, ProbVariant::Bet, &player));
-            approx(1.0, bet(DieVal::Two, 1).prob(state, ProbVariant::Bet, &player));
-            approx(1.0, bet(DieVal::Two, 2).prob(state, ProbVariant::Bet, &player));
-            approx(1.0 / 3.0, bet(DieVal::Two, 3).prob(state, ProbVariant::Bet, &player));
+            approx(1.0, bet(DieVal::Two, 0).prob(state, ProbVariant::Bet, player));
+            approx(1.0, bet(DieVal::Two, 1).prob(state, ProbVariant::Bet, player));
+            approx(1.0, bet(DieVal::Two, 2).prob(state, ProbVariant::Bet, player));
+            approx(1.0 / 3.0, bet(DieVal::Two, 3).prob(state, ProbVariant::Bet, player));
 
             // TODO: More tests for the prob-calcs.
-        }
-
-        it "generates the most likely bet" {
-            let player = Player {
-                id: 0,
-                human: false,
-                hand: Hand::<Die> {
-                    items: vec![
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six }
-                    ],
-                },
-            };
-            let total_num_dice = 5;
-            let opponent_bet = &PerudoBet {
-                quantity: 4,
-                value: DieVal::Six,
-            };
-            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
-            assert_eq!(best_outcome_above, TurnOutcome::Bet(PerudoBet {
-                quantity: 5,
-                value: DieVal::Six,
-            }));
-        }
-
-        it "calls palafico with no other option" {
-            let player = Player {
-                id: 0,
-                human: false,
-                hand: Hand::<Die> {
-                    items: vec![
-                        Die{ val: DieVal::Six },
-                    ],
-                },
-            };
-            let total_num_dice = 2;
-            let opponent_bet = &PerudoBet {
-                quantity: 1,
-                value: DieVal::Six,
-            };
-            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
-            assert_eq!(best_outcome_above, TurnOutcome::Palafico);
         }
     }
 }
