@@ -98,11 +98,16 @@ impl Player {
     // Gets the best bet above a certain bet.
     // If no bet is better than Perudo then we return this.
     pub fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome {
-        let state = &GameState{num_items: total_num_dice};
+        let state = &GameState {
+            num_items: total_num_dice,
+        };
 
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
-            (TurnOutcome::Perudo, bet.prob(state, ProbVariant::Perudo, self)),
+            (
+                TurnOutcome::Perudo,
+                bet.prob(state, ProbVariant::Perudo, self),
+            ),
             (
                 TurnOutcome::Palafico,
                 bet.prob(state, ProbVariant::Palafico, self),
@@ -111,7 +116,12 @@ impl Player {
         outcomes.extend(
             bet.all_above(state)
                 .into_iter()
-                .map(|b| (TurnOutcome::Bet(*b.clone()), b.prob(state, ProbVariant::Bet, self)))
+                .map(|b| {
+                    (
+                        TurnOutcome::Bet(*b.clone()),
+                        b.prob(state, ProbVariant::Bet, self),
+                    )
+                })
                 .collect::<Vec<(TurnOutcome, f64)>>(),
         );
 
@@ -134,7 +144,9 @@ impl Player {
         }
 
         let total_num_dice = game.total_num_dice();
-        let state = &GameState{num_items: total_num_dice};
+        let state = &GameState {
+            num_items: total_num_dice,
+        };
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self)),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),

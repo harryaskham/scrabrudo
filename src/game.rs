@@ -22,7 +22,7 @@ pub enum TurnOutcome {
 /// An export of the state of the game required by Bets/Players to make progress.
 pub struct GameState {
     /// The total number of items left around the table.
-    pub num_items: usize
+    pub num_items: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,7 +117,7 @@ impl Game {
             // TODO: Remove this hacky thing with e.g. PerudoBet::min()
             TurnOutcome::First => *PerudoBet::smallest(),
             TurnOutcome::Bet(bet) => bet.clone(),
-            _ => panic!()
+            _ => panic!(),
         }
     }
 

@@ -6,9 +6,9 @@ use crate::testing;
 
 use probability::prelude::*;
 use rand::seq::SliceRandom;
-use speculate::speculate;
 use rand::thread_rng;
 use rand::Rng;
+use speculate::speculate;
 use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -36,7 +36,12 @@ pub trait Bet: Ord + Clone {
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
-            .map(|b| ((100000.0 * b.prob(state, ProbVariant::Bet, player)) as u64, b))
+            .map(|b| {
+                (
+                    (100000.0 * b.prob(state, ProbVariant::Bet, player)) as u64,
+                    b,
+                )
+            })
             .collect::<Vec<(u64, Box<Self>)>>();
         bets.sort_by(|a, b| a.0.cmp(&b.0));
         bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
@@ -69,7 +74,7 @@ pub trait Bet: Ord + Clone {
 pub enum ProbVariant {
     Bet,
     Perudo,
-    Palafico
+    Palafico,
 }
 
 // TODO: Rename PerudoBet and refactor
@@ -82,10 +87,12 @@ pub struct PerudoBet {
 impl Bet for PerudoBet {
     fn all(state: &GameState) -> Vec<Box<Self>> {
         iproduct!(DieVal::all().into_iter(), 1..=state.num_items)
-            .map(|(value, quantity)| Box::new(PerudoBet {
-                value: value,
-                quantity: quantity,
-            }))
+            .map(|(value, quantity)| {
+                Box::new(PerudoBet {
+                    value: value,
+                    quantity: quantity,
+                })
+            })
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
@@ -100,7 +107,7 @@ impl Bet for PerudoBet {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
             ProbVariant::Perudo => self.perudo_prob(state, player),
-            ProbVariant::Palafico => self.palafico_prob(state, player)
+            ProbVariant::Palafico => self.palafico_prob(state, player),
         }
     }
 
