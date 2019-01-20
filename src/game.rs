@@ -9,10 +9,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 
+// TODO: PerudoTurnOutcome and make a more general version when making Game variant-agnostic.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum TurnOutcome {
     First,
-    Bet(Bet),
+    Bet(PerudoBet),
     Perudo,
     Palafico,
     Win,
@@ -23,7 +24,7 @@ pub struct Game {
     pub players: Vec<Player>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
-    pub last_bet: Bet,
+    pub last_bet: PerudoBet,
 }
 
 impl fmt::Display for Game {
@@ -42,8 +43,8 @@ impl fmt::Display for Game {
 
 // TODO: Remove this - required for ordering purposes but should have a minimum value via an enum.
 // This can also just be an option instead.
-fn hacky_first_bet() -> Bet {
-    return Bet {
+fn hacky_first_bet() -> PerudoBet {
+    return PerudoBet {
         value: DieVal::One,
         quantity: 0,
     };
@@ -90,15 +91,17 @@ impl Game {
         }
     }
 
-    pub fn is_correct(&self, bet: &Bet) -> bool {
-        let max_correct_bet = Bet {
+    // TODO: Candidate for moving into Bet
+    pub fn is_correct(&self, bet: &PerudoBet) -> bool {
+        let max_correct_bet = PerudoBet {
             value: bet.value.clone(),
             quantity: self.num_logical_dice(&bet.value),
         };
         bet <= &max_correct_bet
     }
 
-    pub fn is_exactly_correct(&self, bet: &Bet) -> bool {
+    // TODO: Candidate for moving into Bet
+    pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
         self.num_logical_dice(&bet.value) == bet.quantity
     }
 

@@ -98,19 +98,21 @@ impl Player {
 
     // Gets the best bet above a certain bet.
     // If no bet is better than Perudo then we return this.
-    pub fn best_outcome_above(&self, bet: &Bet, total_num_dice: usize) -> TurnOutcome {
+    pub fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome {
+        let state = &GameState{num_items: total_num_dice};
+
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
-            (TurnOutcome::Perudo, bet.perudo_prob(total_num_dice, self)),
+            (TurnOutcome::Perudo, bet.prob(state, ProbVariant::Perudo, self)),
             (
                 TurnOutcome::Palafico,
-                bet.palafico_prob(total_num_dice, self),
+                bet.prob(state, ProbVariant::Palafico, self),
             ),
         ];
         outcomes.extend(
-            bet.all_above(total_num_dice)
+            bet.all_above(state)
                 .into_iter()
-                .map(|b| (TurnOutcome::Bet(b.clone()), b.prob(total_num_dice, self)))
+                .map(|b| (TurnOutcome::Bet(*b.clone()), b.prob(state, ProbVariant::Bet, self)))
                 .collect::<Vec<(TurnOutcome, f64)>>(),
         );
 
@@ -126,39 +128,6 @@ impl Player {
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    // Gets all bets ordered by probability.
-    pub fn ordered_bets(&self, total_num_dice: usize) -> Vec<Bet> {
-        let mut bets = Bet::all(total_num_dice)
-            .into_iter()
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
-            .map(|b| ((100000.0 * b.prob(total_num_dice, self)) as u64, b))
-            .collect::<Vec<(u64, Bet)>>();
-        bets.sort_by(|a, b| a.0.cmp(&b.0));
-        bets.into_iter().map(|x| x.1).collect::<Vec<Bet>>()
-    }
-
-    // Pick the best bet from those given.
-    // TODO: Better than random choice from equally likely bets.
-    pub fn best_first_bet(&self, total_num_dice: usize) -> Bet {
-        let bets = self.first_bets(total_num_dice);
-        let max_prob = bets[bets.len() - 1].prob(total_num_dice, self);
-        let best_bets = bets
-            .into_iter()
-            .filter(|b| b.prob(total_num_dice, self) == max_prob)
-            .collect::<Vec<Bet>>();
-        let mut rng = thread_rng();
-        best_bets.choose(&mut rng).unwrap().clone()
-    }
-
-    // Get the allowed first bets - everything but ones.
-    // Bets are ordered by their probability of occuring.
-    pub fn first_bets(&self, total_num_dice: usize) -> Vec<Bet> {
-        self.ordered_bets(total_num_dice)
-            .into_iter()
-            .filter(|b| b.value != DieVal::One)
-            .collect::<Vec<Bet>>()
-    }
-
     pub fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
         if self.human {
             // TODO: More elegant way of implementing multiple play strategies.
@@ -166,8 +135,9 @@ impl Player {
         }
 
         let total_num_dice = game.total_num_dice();
+        let state = &GameState{num_items: total_num_dice};
         match current_outcome {
-            TurnOutcome::First => TurnOutcome::Bet(self.best_first_bet(total_num_dice)),
+            TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self)),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),
             _ => panic!(),
         }
@@ -227,7 +197,7 @@ impl Player {
             };
 
             // Either return a valid bet or take input again.
-            let bet = Bet {
+            let bet = PerudoBet {
                 value: DieVal::from_usize(value),
                 quantity: quantity,
             };
