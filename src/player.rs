@@ -14,7 +14,6 @@ use std::io;
 
 #[derive(Debug, Clone)]
 pub struct Player {
-    // TODO: Make private again and enforce immutability via with/without functions.
     pub id: usize,
     pub hand: Hand<Die>,
     pub human: bool,

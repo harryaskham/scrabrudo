@@ -19,6 +19,12 @@ pub enum TurnOutcome {
     Win,
 }
 
+/// An export of the state of the game required by Bets/Players to make progress.
+pub struct GameState {
+    /// The total number of items left around the table.
+    pub num_items: usize
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
     pub players: Vec<Player>,

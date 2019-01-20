@@ -14,12 +14,6 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 
-/// The state of the game required by Bets to make progress.
-pub struct GameState {
-    /// The total number of items left around the table.
-    pub num_items: usize
-}
-
 /// Trait implemented by any type of bet.
 pub trait Bet: Ord + Clone {
     /// Return all possible bets given the current game state.
@@ -33,11 +27,6 @@ pub trait Bet: Ord + Clone {
             .filter(|b| **b > *self)
             .collect::<Vec<Box<Self>>>()
     }
-
-    /// Get the probability of this bet being correct.
-    /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
-    /// TODO: Need to make ProbVarient itself a boxed trait enum, same reason.
-    fn prob(&self, state: &GameState, variant: ProbVariant, player: &Player) -> f64;
 
     /// Gets all bets ordered by probability.
     fn ordered_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
@@ -66,6 +55,11 @@ pub trait Bet: Ord + Clone {
         let mut rng = thread_rng();
         best_bets.choose(&mut rng).unwrap().clone()
     }
+
+    /// Get the probability of this bet being correct.
+    /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
+    /// TODO: Need to make ProbVarient itself a boxed trait enum, same reason.
+    fn prob(&self, state: &GameState, variant: ProbVariant, player: &Player) -> f64;
 }
 
 /// The different types of Bet one can make in Perudo.
