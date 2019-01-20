@@ -1,14 +1,13 @@
 /// Game logic.
-
-use crate::player::*;
 use crate::bet::*;
 use crate::hand::*;
+use crate::player::*;
 use crate::testing;
 
+use speculate::speculate;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
-use speculate::speculate;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum TurnOutcome {
@@ -47,7 +46,7 @@ fn hacky_first_bet() -> Bet {
     return Bet {
         value: DieVal::One,
         quantity: 0,
-    }
+    };
 }
 
 impl Game {
@@ -155,7 +154,7 @@ impl Game {
                         (self.current_index + self.players.len() - 1) % self.players.len();
                 };
                 return self.end_turn(loser_index);
-            },
+            }
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id);
                 let actual_amount = self.num_logical_dice(&self.last_bet.value);
@@ -172,7 +171,7 @@ impl Game {
                     );
                     return self.end_turn(self.current_index);
                 }
-            },
+            }
             _ => panic!(),
         };
     }
@@ -188,7 +187,11 @@ impl Game {
             .enumerate()
             .map(|(i, p)| {
                 if i == winner_index && p.hand.items.len() < 5 {
-                    info!("Player {} gains a die, now has {}", winner.id, p.hand.items.len() + 1);
+                    info!(
+                        "Player {} gains a die, now has {}",
+                        winner.id,
+                        p.hand.items.len() + 1
+                    );
                     p.with_one()
                 } else {
                     p.refresh()
@@ -200,18 +203,21 @@ impl Game {
             current_index: winner_index,
             current_outcome: TurnOutcome::First,
             last_bet: hacky_first_bet(),
-        }
+        };
     }
 
     /// Gets a cloned refreshed view on the players.
     fn refreshed_players(&self) -> Vec<Player> {
-        self.players.clone().into_iter().map(|p| p.refresh()).collect::<Vec<Player>>()
+        self.players
+            .clone()
+            .into_iter()
+            .map(|p| p.refresh())
+            .collect::<Vec<Player>>()
     }
 
     /// Gets the players refreshed with one player losing.
     fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Player> {
-        self
-            .players
+        self.players
             .clone()
             .into_iter()
             .enumerate()
@@ -266,7 +272,7 @@ impl Game {
                 current_index: loser_index,
                 current_outcome: TurnOutcome::First,
                 last_bet: hacky_first_bet(),
-            }
+            };
         }
     }
 }

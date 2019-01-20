@@ -1,13 +1,12 @@
 /// Player definitions and human/CPU behaviour.
-
-use crate::hand::*;
-use crate::game::*;
 use crate::bet::*;
+use crate::game::*;
+use crate::hand::*;
 use crate::hand::*;
 
-use rand::Rng;
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
+use rand::Rng;
 use std::cmp::Ord;
 use std::collections::HashMap;
 use std::fmt;
@@ -103,17 +102,26 @@ impl Player {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
             (TurnOutcome::Perudo, bet.perudo_prob(total_num_dice, self)),
-            (TurnOutcome::Palafico, bet.palafico_prob(total_num_dice, self)),
+            (
+                TurnOutcome::Palafico,
+                bet.palafico_prob(total_num_dice, self),
+            ),
         ];
-        outcomes.extend(bet.all_above(total_num_dice)
-            .into_iter()
-            .map(|b| (TurnOutcome::Bet(b.clone()), b.prob(total_num_dice, self)))
-            .collect::<Vec<(TurnOutcome, f64)>>());
+        outcomes.extend(
+            bet.all_above(total_num_dice)
+                .into_iter()
+                .map(|b| (TurnOutcome::Bet(b.clone()), b.prob(total_num_dice, self)))
+                .collect::<Vec<(TurnOutcome, f64)>>(),
+        );
 
         // HACK - get an arbitrary one of the best outcomes.
         outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
         let best_p = outcomes[outcomes.len() - 1].1;
-        let best_outcomes = outcomes.into_iter().filter(|a| a.1 == best_p).map(|a| a.0).collect::<Vec<TurnOutcome>>();
+        let best_outcomes = outcomes
+            .into_iter()
+            .filter(|a| a.1 == best_p)
+            .map(|a| a.0)
+            .collect::<Vec<TurnOutcome>>();
         let mut rng = thread_rng();
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
@@ -134,7 +142,8 @@ impl Player {
     pub fn best_first_bet(&self, total_num_dice: usize) -> Bet {
         let bets = self.first_bets(total_num_dice);
         let max_prob = bets[bets.len() - 1].prob(total_num_dice, self);
-        let best_bets = bets.into_iter()
+        let best_bets = bets
+            .into_iter()
             .filter(|b| b.prob(total_num_dice, self) == max_prob)
             .collect::<Vec<Bet>>();
         let mut rng = thread_rng();
@@ -144,8 +153,7 @@ impl Player {
     // Get the allowed first bets - everything but ones.
     // Bets are ordered by their probability of occuring.
     pub fn first_bets(&self, total_num_dice: usize) -> Vec<Bet> {
-        self
-            .ordered_bets(total_num_dice)
+        self.ordered_bets(total_num_dice)
             .into_iter()
             .filter(|b| b.value != DieVal::One)
             .collect::<Vec<Bet>>()

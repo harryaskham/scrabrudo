@@ -1,11 +1,10 @@
 /// Logic related to dealing hands.
-
 use crate::testing;
 
 use rand::distributions::Standard;
 use rand::Rng;
-use std::cmp::Ord;
 use speculate::speculate;
+use std::cmp::Ord;
 
 /// Anything that can make up a hand.
 pub trait Holdable {

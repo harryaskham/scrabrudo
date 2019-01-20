@@ -11,10 +11,10 @@ extern crate approx;
 #[macro_use(c)]
 extern crate cute;
 
-pub mod game;
-pub mod player;
-pub mod hand;
 pub mod bet;
+pub mod game;
+pub mod hand;
+pub mod player;
 pub mod testing;
 
 use crate::game::*;
@@ -30,7 +30,7 @@ fn main() {
     info!("Perudo 0.1");
     if args.len() < 2 {
         info!("Please supply number of players");
-        return
+        return;
     }
 
     let num_players = args[1].parse::<usize>().unwrap();

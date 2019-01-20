@@ -1,16 +1,15 @@
-/// Bet definitions and related logic.
-
-use crate::player::*;
 use crate::game::*;
 use crate::hand::*;
+/// Bet definitions and related logic.
+use crate::player::*;
 use crate::testing;
 
 use probability::prelude::*;
+use speculate::speculate;
 use std::cmp::Ord;
 use std::cmp::Ordering;
-use std::fmt;
-use speculate::speculate;
 use std::collections::HashSet;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Bet {
@@ -48,7 +47,7 @@ impl Bet {
 
     // Gets the probability that this bet is incorrect as far as the given player is concerned.
     pub fn perudo_prob(&self, total_num_dice: usize, player: &Player) -> f64 {
-        1.0 - self.prob(total_num_dice, player) 
+        1.0 - self.prob(total_num_dice, player)
     }
 
     // Gets the probability that this bet is exactly correct as far as the given player is
@@ -326,7 +325,7 @@ speculate! {
                 value: DieVal::Six,
             };
             let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
-            assert_eq!(best_outcome_above, TurnOutcome::Palafico);           
+            assert_eq!(best_outcome_above, TurnOutcome::Palafico);
         }
     }
 }
