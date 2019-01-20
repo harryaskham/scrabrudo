@@ -109,7 +109,6 @@ impl Bet for PerudoBet {
 }
 
 impl PerudoBet {
-
     // All the valid bets without aces, for first-turn purposes.
     pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
         PerudoBet::all(state)
