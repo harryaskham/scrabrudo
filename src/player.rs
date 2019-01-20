@@ -38,9 +38,6 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Control logic for having a human play the game.
     fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome;
 
-    /// Whether or not the player is controlled by a human.
-    fn is_human(&self) -> bool;
-
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
 
@@ -122,10 +119,6 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn is_human(&self) -> bool {
-        self.human
-    }
-
     fn num_items(&self) -> usize {
         self.hand.items.len()
     }
@@ -186,7 +179,7 @@ impl Player for PerudoPlayer {
     }
 
     fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
-        if self.is_human() {
+        if self.human {
             // TODO: More elegant way of implementing multiple play strategies.
             return self.human_play(game, current_outcome);
         }
@@ -270,9 +263,7 @@ impl Player for PerudoPlayer {
                         continue;
                     }
                 }
-                TurnOutcome::Perudo => panic!(),
-                TurnOutcome::Palafico => panic!(),
-                TurnOutcome::Win => panic!(),
+                _ => panic!(),
             };
         }
     }

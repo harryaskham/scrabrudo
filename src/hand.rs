@@ -30,7 +30,7 @@ impl RandomDealer {
     }
 }
 
-impl<T: Holdable> Dealer<T> for RandomDealer {
+impl <T: Holdable> Dealer<T> for RandomDealer {
     fn deal(&self) -> T {
         T::get_random()
     }
