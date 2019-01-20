@@ -28,6 +28,9 @@ pub trait Bet: Ord + Clone {
             .collect::<Vec<Box<Self>>>()
     }
 
+    /// Gets the smallest possible bet.
+    fn smallest() -> Box<Self>;
+
     /// Gets all bets ordered by probability.
     fn ordered_bets(state: &GameState, player: &Player) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
@@ -100,10 +103,17 @@ impl Bet for PerudoBet {
             ProbVariant::Palafico => self.palafico_prob(state, player)
         }
     }
+
+    fn smallest() -> Box<Self> {
+        Box::new(Self {
+            quantity: 0,
+            value: DieVal::Two,
+        })
+    }
 }
 
 impl PerudoBet {
-    // All the valid bets without aces, for first-turn purposes.
+    /// All the valid bets without aces, for first-turn purposes.
     pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
         PerudoBet::all(state)
             .into_iter()
@@ -111,13 +121,13 @@ impl PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    // Gets the probability that this bet is incorrect as far as the given player is concerned.
+    /// Gets the probability that this bet is incorrect as far as the given player is concerned.
     pub fn perudo_prob(&self, state: &GameState, player: &Player) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
-    // Gets the probability that this bet is exactly correct as far as the given player is
-    // concerned.
+    /// Gets the probability that this bet is exactly correct as far as the given player is
+    /// concerned.
     pub fn palafico_prob(&self, state: &GameState, player: &Player) -> f64 {
         let guaranteed_quantity = player.num_logical_dice(self.value.clone());
         if guaranteed_quantity > self.quantity {
@@ -136,11 +146,11 @@ impl PerudoBet {
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
-    // Get the probability of the bet being correct.
-    // This is akin to the mass of this bet, plus all those with the same value and higher
-    // quantity.
-    // We also take into account only the other dice and count those we have in the given hand as
-    // guaranteed.
+    /// Get the probability of the bet being correct.
+    /// This is akin to the mass of this bet, plus all those with the same value and higher
+    /// quantity.
+    /// We also take into account only the other dice and count those we have in the given hand as
+    /// guaranteed.
     pub fn bet_prob(&self, state: &GameState, player: &Player) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
@@ -220,7 +230,7 @@ speculate! {
         testing::set_up();
     }
 
-    describe "bets" {
+    describe "perudo bets" {
         fn bet(v: DieVal, q: usize) -> Box<PerudoBet> {
             Box::new(PerudoBet {
                 value: v,

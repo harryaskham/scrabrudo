@@ -30,7 +30,6 @@ pub struct Game {
     pub players: Vec<Player>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
-    pub last_bet: PerudoBet,
 }
 
 impl fmt::Display for Game {
@@ -47,23 +46,12 @@ impl fmt::Display for Game {
     }
 }
 
-// TODO: Remove this - required for ordering purposes but should have a minimum value via an enum.
-// This can also just be an option instead.
-fn hacky_first_bet() -> PerudoBet {
-    return PerudoBet {
-        value: DieVal::One,
-        quantity: 0,
-    };
-}
-
 impl Game {
     pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut game = Self {
             players: Vec::new(),
             current_index: 0,
             current_outcome: TurnOutcome::First,
-            // TODO: Remove hack via an Option.
-            last_bet: hacky_first_bet(),
         };
 
         for id in 0..num_players {
@@ -123,12 +111,22 @@ impl Game {
         self.num_dice_per_player().iter().sum()
     }
 
+    // Gets the last bet issued.
+    pub fn last_bet(&self) -> PerudoBet {
+        match &self.current_outcome {
+            // TODO: Remove this hacky thing with e.g. PerudoBet::min()
+            TurnOutcome::First => *PerudoBet::smallest(),
+            TurnOutcome::Bet(bet) => bet.clone(),
+            _ => panic!()
+        }
+    }
+
     // Runs a turn and either finishes or sets up for the next turn.
-    // TODO: Split up to decouple the game logic from the RL input.
     pub fn run_turn(&self) -> Game {
-        let player = &self.players[self.current_index];
+        let last_bet = self.last_bet();
 
         // Get the current state based on this player's move.
+        let player = &self.players[self.current_index];
         let current_outcome = player.play(self, &self.current_outcome);
 
         // TODO: Include historic bets in the context given to the player.
@@ -136,28 +134,26 @@ impl Game {
         match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id, bet);
-                let last_bet = bet.clone();
                 return Game {
                     players: self.players.clone(),
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
-                    last_bet: last_bet,
                 };
             }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id);
                 let loser_index: usize;
-                let actual_amount = self.num_logical_dice(&self.last_bet.value);
-                if self.is_correct(&self.last_bet) {
+                let actual_amount = self.num_logical_dice(&last_bet.value);
+                if self.is_correct(&last_bet) {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id, actual_amount, self.last_bet.value
+                        player.id, actual_amount, last_bet.value
                     );
                     loser_index = self.current_index;
                 } else {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id, actual_amount, self.last_bet.value
+                        player.id, actual_amount, last_bet.value
                     );
                     loser_index =
                         (self.current_index + self.players.len() - 1) % self.players.len();
@@ -166,17 +162,17 @@ impl Game {
             }
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id);
-                let actual_amount = self.num_logical_dice(&self.last_bet.value);
-                if self.is_exactly_correct(&self.last_bet) {
+                let actual_amount = self.num_logical_dice(&last_bet.value);
+                if self.is_exactly_correct(&last_bet) {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id, actual_amount, self.last_bet.value
+                        player.id, actual_amount, last_bet.value
                     );
                     return self.end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id, actual_amount, self.last_bet.value
+                        player.id, actual_amount, last_bet.value
                     );
                     return self.end_turn(self.current_index);
                 }
@@ -211,7 +207,6 @@ impl Game {
             players: players,
             current_index: winner_index,
             current_outcome: TurnOutcome::First,
-            last_bet: hacky_first_bet(),
         };
     }
 
@@ -255,7 +250,6 @@ impl Game {
                     players: players.clone(),
                     current_index: (loser_index % players.len()) as usize,
                     current_outcome: TurnOutcome::First,
-                    last_bet: hacky_first_bet(),
                 };
             } else {
                 info!("Player {} wins!", players[0].id);
@@ -263,7 +257,6 @@ impl Game {
                     players: players,
                     current_index: 0,
                     current_outcome: TurnOutcome::Win,
-                    last_bet: hacky_first_bet(),
                 };
             }
         } else {
@@ -280,7 +273,6 @@ impl Game {
                 players: players,
                 current_index: loser_index,
                 current_outcome: TurnOutcome::First,
-                last_bet: hacky_first_bet(),
             };
         }
     }
