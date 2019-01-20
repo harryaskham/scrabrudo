@@ -94,10 +94,7 @@ impl Game {
     }
 
     pub fn num_dice_per_player(&self) -> Vec<usize> {
-        self.players
-            .iter()
-            .map(|p| p.num_items())
-            .collect()
+        self.players.iter().map(|p| p.num_items()).collect()
     }
 
     pub fn total_num_dice(&self) -> usize {
@@ -140,13 +137,17 @@ impl Game {
                 if self.is_correct(&last_bet) {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id(), actual_amount, last_bet.value
+                        player.id(),
+                        actual_amount,
+                        last_bet.value
                     );
                     loser_index = self.current_index;
                 } else {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id(), actual_amount, last_bet.value
+                        player.id(),
+                        actual_amount,
+                        last_bet.value
                     );
                     loser_index =
                         (self.current_index + self.players.len() - 1) % self.players.len();
@@ -159,13 +160,17 @@ impl Game {
                 if self.is_exactly_correct(&last_bet) {
                     info!(
                         "Player {} is correct, there were {} {:?}s",
-                        player.id(), actual_amount, last_bet.value
+                        player.id(),
+                        actual_amount,
+                        last_bet.value
                     );
                     return self.with_end_turn_palafico(self.current_index);
                 } else {
                     info!(
                         "Player {} is incorrect, there were {} {:?}s",
-                        player.id(), actual_amount, last_bet.value
+                        player.id(),
+                        actual_amount,
+                        last_bet.value
                     );
                     self.with_end_turn(self.current_index)
                 }
@@ -204,18 +209,12 @@ impl Game {
 
     /// Gets a cloned refreshed view on the players.
     fn refreshed_players(&self) -> Vec<Box<dyn Player>> {
-        self.players
-            .iter()
-            .map(|p| p.refresh())
-            .collect()
+        self.players.iter().map(|p| p.refresh()).collect()
     }
 
     /// Clones players without touching their hands.
     fn cloned_players(&self) -> Vec<Box<dyn Player>> {
-        self.players
-            .iter()
-            .map(|p| p.cloned())
-            .collect()
+        self.players.iter().map(|p| p.cloned()).collect()
     }
 
     /// Gets the players refreshed with one player losing.

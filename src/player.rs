@@ -8,9 +8,9 @@ use crate::testing;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rand::Rng;
+use speculate::speculate;
 use std::cmp::Ord;
 use std::collections::HashMap;
-use speculate::speculate;
 use std::fmt;
 use std::io;
 
