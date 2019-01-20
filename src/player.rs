@@ -33,10 +33,7 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn cloned(&self) -> Box<Player>;
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome;
-
-    /// Control logic for having a human play the game.
-    fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome;
+    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome;
 
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
@@ -49,7 +46,11 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn num_logical_items(&self, val: DieVal) -> usize;
 
     /// Given the game state, return this player's chosen outcome.
-    fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome;
+    fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
+
+    /// Control logic for having a human play the game.
+    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
+
 }
 
 #[derive(Debug, Clone)]
@@ -138,11 +139,7 @@ impl Player for PerudoPlayer {
         }
     }
 
-    fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome {
-        let state = &GameState {
-            num_items: total_num_dice,
-        };
-
+    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
             (
@@ -178,31 +175,29 @@ impl Player for PerudoPlayer {
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    fn play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+    // TODO: Probably should move to game.rs
+    fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
         if self.human {
             // TODO: More elegant way of implementing multiple play strategies.
-            return self.human_play(game, current_outcome);
+            return self.human_play(state, current_outcome);
         }
 
         // TODO: Can almost make this fully generic, need to tie together e.g. PerudoPlayer,
         // PerudoBet, PerudoGame somehow.
-        let total_num_dice = game.total_num_dice();
-        let state = &GameState {
-            num_items: total_num_dice,
-        };
         match current_outcome {
             TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self)),
-            TurnOutcome::Bet(current_bet) => self.best_outcome_above(current_bet, total_num_dice),
+            TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
             _ => panic!(),
         }
     }
 
-    fn human_play(&self, game: &Game, current_outcome: &TurnOutcome) -> TurnOutcome {
+    // TODO: Probably should move to game.rs
+    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
         loop {
             info!(
                 "Dice left: {:?} ({})",
-                game.num_dice_per_player(),
-                game.total_num_dice()
+                state.num_items_per_player,
+                state.total_num_items
             );
             info!("Hand for Player {}", self);
             match current_outcome {
@@ -299,12 +294,15 @@ speculate! {
                     ],
                 },
             };
-            let total_num_dice = 5;
+            let state = &GameState {
+                total_num_items: 5,
+                num_items_per_player: vec![5],
+            };
             let opponent_bet = &PerudoBet {
                 quantity: 4,
                 value: DieVal::Six,
             };
-            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Bet(PerudoBet {
                 quantity: 5,
                 value: DieVal::Six,
@@ -321,12 +319,15 @@ speculate! {
                     ],
                 },
             };
-            let total_num_dice = 2;
+            let state = &GameState {
+                total_num_items: 2,
+                num_items_per_player: vec![1, 1],
+            };
             let opponent_bet = &PerudoBet {
                 quantity: 1,
                 value: DieVal::Six,
             };
-            let best_outcome_above = player.best_outcome_above(opponent_bet, total_num_dice);
+            let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Palafico);
         }
     }

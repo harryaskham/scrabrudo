@@ -22,7 +22,37 @@ pub enum TurnOutcome {
 /// An export of the state of the game required by Bets/Players to make progress.
 pub struct GameState {
     /// The total number of items left around the table.
-    pub num_items: usize,
+    pub total_num_items: usize,
+
+    /// The number of items remaining with each player.
+    pub num_items_per_player: Vec<usize>
+}
+
+pub trait RenameGame {
+    /// Gets a state representation of the game.
+    fn state(&self) -> GameState {
+        GameState {
+            total_num_items: self.total_num_items(),
+            num_items_per_player: self.num_items_per_player()
+        }
+    }
+
+    /// Gets the total number of items with the exact value given.
+    fn num_items_with(&self, val: DieVal) -> usize;
+
+    /// Gets the logical number of total items e.g. including wildcards.
+    fn num_logical_items(&self, val: DieVal) -> usize;
+
+    /// Gets the number of items remaining per player by index.
+    fn num_items_per_player(&self) -> Vec<usize>;
+
+    /// Gets the total number of remaining items.
+    fn total_num_items(&self) -> usize {
+        self.num_items_per_player().iter().sum()
+    }
+
+    /// Immutably runs a single turn of the game, returning a new Game with updated state.
+    fn run_turn(&self) -> Game;
 }
 
 pub struct Game {
@@ -45,25 +75,8 @@ impl fmt::Display for Game {
     }
 }
 
-impl Game {
-    pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
-        let mut game = Self {
-            players: Vec::new(),
-            current_index: 0,
-            current_outcome: TurnOutcome::First,
-        };
-
-        for id in 0..num_players {
-            let human = human_indices.contains(&id);
-            // TODO: Move this Perudo-specific logic into PerudoGame.
-            let player = PerudoPlayer::new(id, human);
-            game.players.push(Box::new(player));
-        }
-
-        game
-    }
-
-    pub fn num_items_with(&self, val: DieVal) -> usize {
+impl RenameGame for Game {
+    fn num_items_with(&self, val: DieVal) -> usize {
         self.players
             .iter()
             .map(|p| p.num_items_with(val.clone()))
@@ -71,7 +84,7 @@ impl Game {
     }
 
     // Gets the actual number of dice around the table, allowing for wildcards.
-    pub fn num_logical_items(&self, val: DieVal) -> usize {
+    fn num_logical_items(&self, val: DieVal) -> usize {
         if val == DieVal::One {
             self.num_items_with(DieVal::One)
         } else {
@@ -79,45 +92,17 @@ impl Game {
         }
     }
 
-    // TODO: Candidate for moving into Bet
-    pub fn is_correct(&self, bet: &PerudoBet) -> bool {
-        let max_correct_bet = PerudoBet {
-            value: bet.value.clone(),
-            quantity: self.num_logical_items(bet.value.clone()),
-        };
-        bet <= &max_correct_bet
-    }
-
-    // TODO: Candidate for moving into Bet
-    pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
-        self.num_logical_items(bet.value.clone()) == bet.quantity
-    }
-
-    pub fn num_dice_per_player(&self) -> Vec<usize> {
+    fn num_items_per_player(&self) -> Vec<usize> {
         self.players.iter().map(|p| p.num_items()).collect()
     }
 
-    pub fn total_num_dice(&self) -> usize {
-        self.num_dice_per_player().iter().sum()
-    }
-
-    // Gets the last bet issued.
-    pub fn last_bet(&self) -> PerudoBet {
-        match &self.current_outcome {
-            // TODO: Remove this hacky thing with e.g. PerudoBet::min()
-            TurnOutcome::First => *PerudoBet::smallest(),
-            TurnOutcome::Bet(bet) => bet.clone(),
-            _ => panic!(),
-        }
-    }
-
     // Runs a turn and either finishes or sets up for the next turn.
-    pub fn run_turn(&self) -> Game {
+    fn run_turn(&self) -> Game {
         let last_bet = self.last_bet();
 
         // Get the current state based on this player's move.
         let player = &self.players[self.current_index];
-        let current_outcome = player.play(self, &self.current_outcome);
+        let current_outcome = player.play(&self.state(), &self.current_outcome);
 
         // TODO: Include historic bets in the context given to the player.
         debug!("{}", self);
@@ -175,6 +160,50 @@ impl Game {
                     self.with_end_turn(self.current_index)
                 }
             }
+            _ => panic!(),
+        }
+    }
+
+}
+
+impl Game {
+    pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
+        let mut game = Self {
+            players: Vec::new(),
+            current_index: 0,
+            current_outcome: TurnOutcome::First,
+        };
+
+        for id in 0..num_players {
+            let human = human_indices.contains(&id);
+            // TODO: Move this Perudo-specific logic into PerudoGame.
+            let player = PerudoPlayer::new(id, human);
+            game.players.push(Box::new(player));
+        }
+
+        game
+    }
+
+    // TODO: Candidate for moving into Bet
+    pub fn is_correct(&self, bet: &PerudoBet) -> bool {
+        let max_correct_bet = PerudoBet {
+            value: bet.value.clone(),
+            quantity: self.num_logical_items(bet.value.clone()),
+        };
+        bet <= &max_correct_bet
+    }
+
+    // TODO: Candidate for moving into Bet
+    pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
+        self.num_logical_items(bet.value.clone()) == bet.quantity
+    }
+
+    // Gets the last bet issued.
+    pub fn last_bet(&self) -> PerudoBet {
+        match &self.current_outcome {
+            // TODO: Remove this hacky thing with e.g. PerudoBet::min()
+            TurnOutcome::First => *PerudoBet::smallest(),
+            TurnOutcome::Bet(bet) => bet.clone(),
             _ => panic!(),
         }
     }

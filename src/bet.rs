@@ -56,7 +56,7 @@ pub struct PerudoBet {
 
 impl Bet for PerudoBet {
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        iproduct!(DieVal::all().into_iter(), 1..=state.num_items)
+        iproduct!(DieVal::all().into_iter(), 1..=state.total_num_items)
             .map(|(value, quantity)| {
                 Box::new(PerudoBet {
                     value: value,
@@ -146,7 +146,7 @@ impl PerudoBet {
         } else {
             1.0 / 3.0
         };
-        let num_other_dice = state.num_items - player.num_items();
+        let num_other_dice = state.total_num_items - player.num_items();
         // This is a single Binomial trial - what's the probability of finding the rest of the dice
         // in the remaining dice.
         // TODO: &This occasionally crashes in the mass() func, possibly due to overflow.
@@ -175,7 +175,7 @@ impl PerudoBet {
         } else {
             1.0 / 3.0
         };
-        let num_other_dice = state.num_items - player.num_items();
+        let num_other_dice = state.total_num_items - player.num_items();
         ((self.quantity - guaranteed_quantity)..=num_other_dice)
             .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
             .sum::<f64>()
@@ -326,7 +326,10 @@ speculate! {
                     bet(DieVal::Six, 1),
                     bet(DieVal::Six, 2),
                 ],
-                original.all_above(&GameState{num_items: 2}));
+                original.all_above(&GameState{
+                    total_num_items: 2,
+                    num_items_per_player: vec![1, 1],
+                }));
         }
 
         fn approx(x: f64, y: f64) {
@@ -351,7 +354,10 @@ speculate! {
                 },
             };
 
-            let state = &GameState{num_items: 6};
+            let state = &GameState{
+                total_num_items: 6,
+                num_items_per_player: vec![5, 1],
+            };
 
             // Bets on Ones, given one in the hand.
             approx(1.0, bet(DieVal::One, 0).prob(state, ProbVariant::Bet, player));
