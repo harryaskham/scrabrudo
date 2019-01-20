@@ -16,21 +16,21 @@ use std::io;
 
 /// Common behaviour for players of any ruleset.
 /// TODO: Remove Perudo references from the common core.
-pub trait RenamePlayer: fmt::Debug + fmt::Display {
+pub trait Player: fmt::Debug + fmt::Display {
     /// Gets the player's ID.
     fn id(&self) -> usize;
 
     /// A copy of the player with an item missing.
-    fn without_one(&self) -> Box<RenamePlayer>;
+    fn without_one(&self) -> Box<Player>;
 
     /// A copy of the player with an extra item.
-    fn with_one(&self) -> Box<RenamePlayer>;
+    fn with_one(&self) -> Box<Player>;
 
     /// A fresh instance of player with a new hand.
-    fn refresh(&self) -> Box<RenamePlayer>;
+    fn refresh(&self) -> Box<Player>;
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<RenamePlayer>;
+    fn cloned(&self) -> Box<Player>;
 
     /// Gets the best turn outcome above a certain bet.
     fn best_outcome_above(&self, bet: &PerudoBet, total_num_dice: usize) -> TurnOutcome;
@@ -56,22 +56,22 @@ pub trait RenamePlayer: fmt::Debug + fmt::Display {
 }
 
 #[derive(Debug, Clone)]
-pub struct Player {
+pub struct PerudoPlayer {
     pub id: usize,
     pub hand: Hand<Die>,
     pub human: bool,
 }
 
-impl PartialEq for Player {
-    fn eq(&self, other: &Player) -> bool {
-        // TODO: Better equality for Players.
+impl PartialEq for PerudoPlayer {
+    fn eq(&self, other: &PerudoPlayer) -> bool {
+        // TODO: Better equality for PerudoPlayers.
         self.id == other.id
     }
 }
 
-impl Eq for Player {}
+impl Eq for PerudoPlayer {}
 
-impl fmt::Display for Player {
+impl fmt::Display for PerudoPlayer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -85,37 +85,37 @@ impl fmt::Display for Player {
     }
 }
 
-impl RenamePlayer for Player {
+impl Player for PerudoPlayer {
     fn id(&self) -> usize {
         self.id
     }
 
-    fn without_one(&self) -> Box<RenamePlayer> {
-        Box::new(Player {
+    fn without_one(&self) -> Box<Player> {
+        Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
         })
     }
 
-    fn with_one(&self) -> Box<RenamePlayer> {
-        Box::new(Player {
+    fn with_one(&self) -> Box<Player> {
+        Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
         })
     }
 
-    fn refresh(&self) -> Box<RenamePlayer> {
-        Box::new(Player {
+    fn refresh(&self) -> Box<Player> {
+        Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
             hand: Hand::<Die>::new(self.hand.items.len() as u32),
         })
     }
 
-    fn cloned(&self) -> Box<RenamePlayer> {
-        Box::new(Player {
+    fn cloned(&self) -> Box<Player> {
+        Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
             hand: self.hand.clone(),
@@ -278,9 +278,9 @@ impl RenamePlayer for Player {
     }
 }
 
-impl Player {
-    pub fn new(id: usize, human: bool) -> Player {
-        Player {
+impl PerudoPlayer {
+    pub fn new(id: usize, human: bool) -> PerudoPlayer {
+        PerudoPlayer {
             id: id,
             human: human,
             hand: Hand::<Die>::new(5),
@@ -295,7 +295,7 @@ speculate! {
 
     describe "perudo player" {
         it "generates the most likely bet" {
-            let player = &Player {
+            let player = &PerudoPlayer {
                 id: 0,
                 human: false,
                 hand: Hand::<Die> {
@@ -321,7 +321,7 @@ speculate! {
         }
 
         it "calls palafico with no other option" {
-            let player = &Player {
+            let player = &PerudoPlayer {
                 id: 0,
                 human: false,
                 hand: Hand::<Die> {

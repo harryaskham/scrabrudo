@@ -26,7 +26,7 @@ pub struct GameState {
 }
 
 pub struct Game {
-    pub players: Vec<Box<dyn RenamePlayer>>,
+    pub players: Vec<Box<dyn Player>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
@@ -55,7 +55,8 @@ impl Game {
 
         for id in 0..num_players {
             let human = human_indices.contains(&id);
-            let player = Player::new(id, human);
+            // TODO: Move this Perudo-specific logic into PerudoGame.
+            let player = PerudoPlayer::new(id, human);
             game.players.push(Box::new(player));
         }
 
@@ -202,7 +203,7 @@ impl Game {
     }
 
     /// Gets a cloned refreshed view on the players.
-    fn refreshed_players(&self) -> Vec<Box<dyn RenamePlayer>> {
+    fn refreshed_players(&self) -> Vec<Box<dyn Player>> {
         self.players
             .iter()
             .map(|p| p.refresh())
@@ -210,7 +211,7 @@ impl Game {
     }
 
     /// Clones players without touching their hands.
-    fn cloned_players(&self) -> Vec<Box<dyn RenamePlayer>> {
+    fn cloned_players(&self) -> Vec<Box<dyn Player>> {
         self.players
             .iter()
             .map(|p| p.cloned())
@@ -218,7 +219,7 @@ impl Game {
     }
 
     /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn RenamePlayer>> {
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player>> {
         self.players
             .iter()
             .enumerate()

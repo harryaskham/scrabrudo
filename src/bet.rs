@@ -32,12 +32,12 @@ pub trait Bet: Ord + Clone {
     fn smallest() -> Box<Self>;
 
     /// Pick the best bet from those available for a first go.
-    fn best_first_bet<T: RenamePlayer>(state: &GameState, player: &T) -> Box<Self>;
+    fn best_first_bet<T: Player>(state: &GameState, player: &T) -> Box<Self>;
 
     /// Get the probability of this bet being correct.
     /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
     /// TODO: Need to make ProbVarient itself a boxed trait enum, same reason.
-    fn prob<T: RenamePlayer>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64;
+    fn prob<T: Player>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64;
 }
 
 /// The different types of Bet one can make in Perudo.
@@ -66,7 +66,7 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn prob<T: RenamePlayer>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64 {
+    fn prob<T: Player>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64 {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
             ProbVariant::Perudo => self.perudo_prob(state, player),
@@ -82,7 +82,7 @@ impl Bet for PerudoBet {
     }
 
     /// TODO: Better than random choice from equally likely bets.
-    fn best_first_bet<T: RenamePlayer>(state: &GameState, player: &T) -> Box<Self> {
+    fn best_first_bet<T: Player>(state: &GameState, player: &T) -> Box<Self> {
         let bets = Self::first_bets(state, player);
         let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player);
         let best_bets = bets
@@ -97,7 +97,7 @@ impl Bet for PerudoBet {
 impl PerudoBet {
     /// Get the allowed first bets - everything but ones.
     /// Bets are ordered by their probability of occuring.
-    fn first_bets<T: RenamePlayer>(state: &GameState, player: &T) -> Vec<Box<Self>> {
+    fn first_bets<T: Player>(state: &GameState, player: &T) -> Vec<Box<Self>> {
         Self::ordered_bets(state, player)
             .into_iter()
             .filter(|b| b.value != DieVal::One)
@@ -105,7 +105,7 @@ impl PerudoBet {
     }
 
     /// Gets all bets ordered by probability.
-    fn ordered_bets<T: RenamePlayer>(state: &GameState, player: &T) -> Vec<Box<Self>> {
+    fn ordered_bets<T: Player>(state: &GameState, player: &T) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
@@ -129,13 +129,13 @@ impl PerudoBet {
     }
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    pub fn perudo_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn perudo_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
-    pub fn palafico_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn palafico_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if guaranteed_quantity > self.quantity {
             return 0.0;
@@ -158,7 +158,7 @@ impl PerudoBet {
     /// quantity.
     /// We also take into account only the other dice and count those we have in the given hand as
     /// guaranteed.
-    pub fn bet_prob<T: RenamePlayer>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn bet_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -337,7 +337,7 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
-            let player = &Player {
+            let player = &PerudoPlayer {
                 id: 0,
                 human: false,
                 hand: Hand::<Die> {
