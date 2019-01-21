@@ -28,19 +28,15 @@ pub struct GameState {
     pub num_items_per_player: Vec<usize>,
 }
 
-// TODO: Add associated types here. E.g. if you want to implement the Game trait you need to
-// specify Die or DieVal - you need to specify a Player type (maybe not though - maybe the player
-// conditions on the item type?) and you need to specify a Bet type.
 pub trait Game {
     /// The associated value-type of a given hand item.
-    /// TODO: Should really be Holdable... can't restrict this here.
-    type V;
+    type V: Holdable;
 
     /// The Bet type to use.
     type B: Bet;
 
     /// The associated type of a Player
-    type P: Player<B = Self::B>;
+    type P: Player<B = Self::B, V = Self::V>;
 
     /// Creates a new instance of the game.
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
@@ -74,20 +70,20 @@ pub trait Game {
     fn run_turn(&self) -> Box<Self>;
 
     /// Gets a list of all the players.
-    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B>>>;
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
 
     /// Gets a cloned refreshed view on the players.
-    fn refreshed_players(&self) -> Vec<Box<dyn Player<B = Self::B>>> {
+    fn refreshed_players(&self) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players().iter().map(|p| p.refresh()).collect()
     }
 
     /// Clones players without touching their hands.
-    fn cloned_players(&self) -> Vec<Box<dyn Player<B = Self::B>>> {
+    fn cloned_players(&self) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players().iter().map(|p| p.cloned()).collect()
     }
 
     /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B = Self::B>>> {
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players()
             .iter()
             .enumerate()
@@ -103,7 +99,7 @@ pub trait Game {
 }
 
 pub struct PerudoGame {
-    pub players: Vec<Box<dyn Player<B = PerudoBet>>>,
+    pub players: Vec<Box<dyn Player<B = PerudoBet, V = Die>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
@@ -123,7 +119,7 @@ impl fmt::Display for PerudoGame {
 }
 
 impl Game for PerudoGame {
-    type V = DieVal;
+    type V = Die;
     type B = PerudoBet;
     type P = PerudoPlayer;
 
@@ -131,7 +127,7 @@ impl Game for PerudoGame {
         PerudoPlayer::new(id, human)
     }
 
-    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B>>> {
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         &self.players
     }
 
@@ -152,7 +148,7 @@ impl Game for PerudoGame {
         game
     }
 
-    fn num_items_with(&self, val: DieVal) -> usize {
+    fn num_items_with(&self, val: Die) -> usize {
         self.players
             .iter()
             .map(|p| p.num_items_with(val.clone()))
@@ -160,11 +156,11 @@ impl Game for PerudoGame {
     }
 
     // Gets the actual number of dice around the table, allowing for wildcards.
-    fn num_logical_items(&self, val: DieVal) -> usize {
-        if val == DieVal::One {
-            self.num_items_with(DieVal::One)
+    fn num_logical_items(&self, val: Die) -> usize {
+        if val == Die::One {
+            self.num_items_with(Die::One)
         } else {
-            self.num_items_with(DieVal::One) + self.num_items_with(val)
+            self.num_items_with(Die::One) + self.num_items_with(val)
         }
     }
 

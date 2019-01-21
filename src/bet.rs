@@ -16,6 +16,8 @@ use std::fmt;
 
 /// Trait implemented by any type of bet.
 pub trait Bet: Ord + Clone {
+    type V: Holdable;
+
     /// Return all possible bets given the current game state.
     fn all(state: &GameState) -> Vec<Box<Self>>;
 
@@ -32,15 +34,14 @@ pub trait Bet: Ord + Clone {
     fn smallest() -> Box<Self>;
 
     /// Pick the best bet from those available for a first go.
-    fn best_first_bet<T: Player>(state: &GameState, player: &T) -> Box<Self>;
+    fn best_first_bet(state: &GameState, player: Box<dyn Player<V=Self::V, B=Self>>) -> Box<Self>;
 
     /// Get the probability of this bet being correct.
-    /// TODO: Need to make Player itself a boxed trait, because this is all still Perudo-specific.
-    /// TODO: Need to make ProbVarient itself a boxed trait enum, same reason.
-    fn prob<T: Player>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64;
+    fn prob(&self, state: &GameState, variant: ProbVariant, player: Box<dyn Player<V=Self::V, B=Self>>) -> f64;
 }
 
 /// The different types of Bet one can make in Perudo.
+/// Used to modulate how we perform probability calculations.
 pub enum ProbVariant {
     Bet,
     Perudo,
@@ -50,13 +51,15 @@ pub enum ProbVariant {
 // TODO: Rename PerudoBet and refactor
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct PerudoBet {
-    pub value: DieVal,
+    pub value: Die,
     pub quantity: usize,
 }
 
 impl Bet for PerudoBet {
+    type V = Die;
+
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        iproduct!(DieVal::all().into_iter(), 1..=state.total_num_items)
+        iproduct!(Die::all().into_iter(), 1..=state.total_num_items)
             .map(|(value, quantity)| {
                 Box::new(PerudoBet {
                     value: value,
@@ -66,7 +69,7 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn prob<T: Player>(&self, state: &GameState, variant: ProbVariant, player: &T) -> f64 {
+    fn prob(&self, state: &GameState, variant: ProbVariant, player: Box<dyn Player<V=Self::V, B=Self>>) -> f64 {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
             ProbVariant::Perudo => self.perudo_prob(state, player),
@@ -77,17 +80,18 @@ impl Bet for PerudoBet {
     fn smallest() -> Box<Self> {
         Box::new(Self {
             quantity: 0,
-            value: DieVal::Two,
+            value: Die::Two,
         })
     }
 
     /// TODO: Better than random choice from equally likely bets.
-    fn best_first_bet<T: Player>(state: &GameState, player: &T) -> Box<Self> {
-        let bets = Self::first_bets(state, player);
-        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player);
+    /// TODO: Too much cloning here.
+    fn best_first_bet(state: &GameState, player: Box<dyn Player<V=Self::V, B=Self>>) -> Box<Self> {
+        let bets = Self::first_bets(state, player.cloned());
+        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player.cloned());
         let best_bets = bets
             .into_iter()
-            .filter(|b| b.prob(state, ProbVariant::Bet, player) == max_prob)
+            .filter(|b| b.prob(state, ProbVariant::Bet, player.cloned()) == max_prob)
             .collect::<Vec<Box<Self>>>();
         let mut rng = thread_rng();
         best_bets.choose(&mut rng).unwrap().clone()
@@ -97,21 +101,21 @@ impl Bet for PerudoBet {
 impl PerudoBet {
     /// Get the allowed first bets - everything but ones.
     /// Bets are ordered by their probability of occuring.
-    fn first_bets<T: Player>(state: &GameState, player: &T) -> Vec<Box<Self>> {
+    fn first_bets(state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> Vec<Box<Self>> {
         Self::ordered_bets(state, player)
             .into_iter()
-            .filter(|b| b.value != DieVal::One)
+            .filter(|b| b.value != Die::One)
             .collect::<Vec<Box<Self>>>()
     }
 
     /// Gets all bets ordered by probability.
-    fn ordered_bets<T: Player>(state: &GameState, player: &T) -> Vec<Box<Self>> {
+    fn ordered_bets(state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
             .map(|b| {
                 (
-                    (100000.0 * b.prob(state, ProbVariant::Bet, player)) as u64,
+                    (100000.0 * b.prob(state, ProbVariant::Bet, player.cloned())) as u64,
                     b,
                 )
             })
@@ -124,24 +128,24 @@ impl PerudoBet {
     pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
         PerudoBet::all(state)
             .into_iter()
-            .filter(|b| b.value != DieVal::One)
+            .filter(|b| b.value != Die::One)
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    pub fn perudo_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn perudo_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
-    pub fn palafico_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn palafico_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if guaranteed_quantity > self.quantity {
             return 0.0;
         }
 
-        let trial_p: f64 = if self.value == DieVal::One {
+        let trial_p: f64 = if self.value == Die::One {
             1.0 / 6.0
         } else {
             1.0 / 3.0
@@ -158,7 +162,7 @@ impl PerudoBet {
     /// quantity.
     /// We also take into account only the other dice and count those we have in the given hand as
     /// guaranteed.
-    pub fn bet_prob<T: Player>(&self, state: &GameState, player: &T) -> f64 {
+    pub fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -170,7 +174,7 @@ impl PerudoBet {
         // Since we say the bet is correct if there are really n or higher.
         // We want 1 minus the probability there are less than n.
         // So that's 1 - cdf(n - 1)
-        let trial_p: f64 = if self.value == DieVal::One {
+        let trial_p: f64 = if self.value == Die::One {
             1.0 / 6.0
         } else {
             1.0 / 3.0
@@ -190,10 +194,10 @@ impl fmt::Display for PerudoBet {
 
 impl Ord for PerudoBet {
     fn cmp(&self, other: &PerudoBet) -> Ordering {
-        if self.value == DieVal::One && other.value == DieVal::One {
+        if self.value == Die::One && other.value == Die::One {
             // If both are ace, then just compare the values.
             self.quantity.cmp(&other.quantity)
-        } else if self.value == DieVal::One {
+        } else if self.value == Die::One {
             // If this is ace, compare its double.
             // We don't +1 here as we want 1x1 to be less than 3x2, not equal.
             // We also do not define equality here in order to enforce unidirectionality of
@@ -203,7 +207,7 @@ impl Ord for PerudoBet {
             } else {
                 Ordering::Less
             }
-        } else if other.value == DieVal::One {
+        } else if other.value == Die::One {
             if other.quantity * 2 >= self.quantity {
                 Ordering::Less
             } else {
@@ -238,7 +242,7 @@ speculate! {
     }
 
     describe "perudo bets" {
-        fn bet(v: DieVal, q: usize) -> Box<PerudoBet> {
+        fn bet(v: Die, q: usize) -> Box<PerudoBet> {
             Box::new(PerudoBet {
                 value: v,
                 quantity: q,
@@ -246,15 +250,15 @@ speculate! {
         }
 
         it "orders bets correctly" {
-            let bet_1 = bet(DieVal::Two, 1);
-            let bet_2 = bet(DieVal::Two, 2);
-            let bet_3 = bet(DieVal::Two, 3);
-            let bet_4 = bet(DieVal::Three, 3);
-            let bet_5 = bet(DieVal::Three, 4);
-            let bet_6 = bet(DieVal::Two, 5);
-            let bet_7 = bet(DieVal::Two, 6);
-            let bet_8 = bet(DieVal::Three, 8);
-            let bet_9 = bet(DieVal::Six, 10);
+            let bet_1 = bet(Die::Two, 1);
+            let bet_2 = bet(Die::Two, 2);
+            let bet_3 = bet(Die::Two, 3);
+            let bet_4 = bet(Die::Three, 3);
+            let bet_5 = bet(Die::Three, 4);
+            let bet_6 = bet(Die::Two, 5);
+            let bet_7 = bet(Die::Two, 6);
+            let bet_8 = bet(Die::Three, 8);
+            let bet_9 = bet(Die::Six, 10);
 
             assert_eq!(bet_1, bet_1.clone());
 
@@ -278,15 +282,15 @@ speculate! {
         }
 
         it "orders ace bets correctly" {
-            let bet_1 = bet(DieVal::Two, 1);
-            let bet_2 = bet(DieVal::One, 1);
-            let bet_3 = bet(DieVal::Two, 3);
-            let bet_4 = bet(DieVal::Two, 4);
-            let bet_5 = bet(DieVal::One, 2);
-            let bet_6 = bet(DieVal::One, 3);
-            let bet_7 = bet(DieVal::Five, 7);
-            let bet_8 = bet(DieVal::One, 4);
-            let bet_9 = bet(DieVal::Six, 9);
+            let bet_1 = bet(Die::Two, 1);
+            let bet_2 = bet(Die::One, 1);
+            let bet_3 = bet(Die::Two, 3);
+            let bet_4 = bet(Die::Two, 4);
+            let bet_5 = bet(Die::One, 2);
+            let bet_6 = bet(Die::One, 3);
+            let bet_7 = bet(Die::Five, 7);
+            let bet_8 = bet(Die::One, 4);
+            let bet_9 = bet(Die::Six, 9);
 
             assert!(bet_1 < bet_2);
             assert!(bet_2 < bet_3);
@@ -309,22 +313,22 @@ speculate! {
 
         it "generates all above" {
             let original = PerudoBet {
-                value: DieVal::Two,
+                value: Die::Two,
                 quantity: 1,
             };
             assert_eq!(
                 vec![
-                    bet(DieVal::One, 1),
-                    bet(DieVal::One, 2),
-                    bet(DieVal::Two, 2),
-                    bet(DieVal::Three, 1),
-                    bet(DieVal::Three, 2),
-                    bet(DieVal::Four, 1),
-                    bet(DieVal::Four, 2),
-                    bet(DieVal::Five, 1),
-                    bet(DieVal::Five, 2),
-                    bet(DieVal::Six, 1),
-                    bet(DieVal::Six, 2),
+                    bet(Die::One, 1),
+                    bet(Die::One, 2),
+                    bet(Die::Two, 2),
+                    bet(Die::Three, 1),
+                    bet(Die::Three, 2),
+                    bet(Die::Four, 1),
+                    bet(Die::Four, 2),
+                    bet(Die::Five, 1),
+                    bet(Die::Five, 2),
+                    bet(Die::Six, 1),
+                    bet(Die::Six, 2),
                 ],
                 original.all_above(&GameState{
                     total_num_items: 2,
@@ -340,19 +344,19 @@ speculate! {
 
         it "computes probability for bets" {
             // Create a player with a few of each.
-            let player = &PerudoPlayer {
+            let player = Box::new(PerudoPlayer {
                 id: 0,
                 human: false,
                 hand: Hand::<Die> {
                     items: vec![
-                        Die{ val: DieVal::One },
-                        Die{ val: DieVal::Two },
-                        Die{ val: DieVal::Three },
-                        Die{ val: DieVal::Four },
-                        Die{ val: DieVal::Five }
+                        Die::One ,
+                        Die::Two ,
+                        Die::Three ,
+                        Die::Four ,
+                        Die::Five 
                     ],
                 },
-            };
+            });
 
             let state = &GameState{
                 total_num_items: 6,
@@ -360,15 +364,15 @@ speculate! {
             };
 
             // Bets on Ones, given one in the hand.
-            approx(1.0, bet(DieVal::One, 0).prob(state, ProbVariant::Bet, player));
-            approx(1.0, bet(DieVal::One, 1).prob(state, ProbVariant::Bet, player));
-            approx(1.0 / 6.0, bet(DieVal::One, 2).prob(state, ProbVariant::Bet, player));
+            approx(1.0, bet(Die::One, 0).prob(state, ProbVariant::Bet, player.cloned()));
+            approx(1.0, bet(Die::One, 1).prob(state, ProbVariant::Bet, player.cloned()));
+            approx(1.0 / 6.0, bet(Die::One, 2).prob(state, ProbVariant::Bet, player.cloned()));
 
             // We have two 2s in the hand already.
-            approx(1.0, bet(DieVal::Two, 0).prob(state, ProbVariant::Bet, player));
-            approx(1.0, bet(DieVal::Two, 1).prob(state, ProbVariant::Bet, player));
-            approx(1.0, bet(DieVal::Two, 2).prob(state, ProbVariant::Bet, player));
-            approx(1.0 / 3.0, bet(DieVal::Two, 3).prob(state, ProbVariant::Bet, player));
+            approx(1.0, bet(Die::Two, 0).prob(state, ProbVariant::Bet, player.cloned()));
+            approx(1.0, bet(Die::Two, 1).prob(state, ProbVariant::Bet, player.cloned()));
+            approx(1.0, bet(Die::Two, 2).prob(state, ProbVariant::Bet, player.cloned()));
+            approx(1.0 / 3.0, bet(Die::Two, 3).prob(state, ProbVariant::Bet, player.cloned()));
 
             // TODO: More tests for the prob-calcs.
         }

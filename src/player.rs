@@ -17,6 +17,9 @@ use std::io;
 /// Common behaviour for players of any ruleset.
 /// TODO: Remove Perudo references from the common core.
 pub trait Player: fmt::Debug + fmt::Display {
+    /// The type of thing this player holds.
+    type V: Holdable;
+
     /// The type determining the bet to be used.
     type B: Bet;
 
@@ -24,16 +27,16 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn id(&self) -> usize;
 
     /// A copy of the player with an item missing.
-    fn without_one(&self) -> Box<Player<B = Self::B>>;
+    fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// A copy of the player with an extra item.
-    fn with_one(&self) -> Box<Player<B = Self::B>>;
+    fn with_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// A fresh instance of player with a new hand.
-    fn refresh(&self) -> Box<Player<B = Self::B>>;
+    fn refresh(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<Player<B = Self::B>>;
+    fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// Gets the best turn outcome above a certain bet.
     fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome;
@@ -42,11 +45,10 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn num_items(&self) -> usize;
 
     /// The total number of dice with the given explicit value (no wildcards).
-    fn num_items_with(&self, val: DieVal) -> usize;
+    fn num_items_with(&self, val: Self::V) -> usize;
 
     /// Gets the actual number of dice around the table, allowing for wildcards.
-    /// TODO: Remove DieVal reference.
-    fn num_logical_items(&self, val: DieVal) -> usize;
+    fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Given the game state, return this player's chosen outcome.
     fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
@@ -79,20 +81,23 @@ impl fmt::Display for PerudoPlayer {
             self.id,
             (&self.hand.items)
                 .into_iter()
-                .map(|d| d.val.int())
+                .map(|d| d.int())
                 .collect::<Vec<u32>>()
         )
     }
 }
 
 impl Player for PerudoPlayer {
+    type V = Die;
     type B = PerudoBet;
 
     fn id(&self) -> usize {
         self.id
     }
 
-    fn without_one(&self) -> Box<Player<B = PerudoBet>> {
+    /// TODO: These methods can all move to the base now, predicated on our V type.
+    /// We don't need to define what dealing means for every new type.
+    fn without_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -100,7 +105,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn with_one(&self) -> Box<Player<B = PerudoBet>> {
+    fn with_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -108,7 +113,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn refresh(&self) -> Box<Player<B = PerudoBet>> {
+    fn refresh(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -116,7 +121,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn cloned(&self) -> Box<Player<B = PerudoBet>> {
+    fn cloned(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -128,18 +133,18 @@ impl Player for PerudoPlayer {
         self.hand.items.len()
     }
 
-    fn num_items_with(&self, val: DieVal) -> usize {
+    fn num_items_with(&self, val: Die) -> usize {
         (&self.hand.items)
             .into_iter()
-            .filter(|d| d.val() == val)
+            .filter(|&d| d == &val)
             .count()
     }
 
-    fn num_logical_items(&self, val: DieVal) -> usize {
-        if val == DieVal::One {
-            self.num_items_with(DieVal::One)
+    fn num_logical_items(&self, val: Die) -> usize {
+        if val == Die::One {
+            self.num_items_with(Die::One)
         } else {
-            self.num_items_with(DieVal::One) + self.num_items_with(val)
+            self.num_items_with(Die::One) + self.num_items_with(val)
         }
     }
 
@@ -148,11 +153,11 @@ impl Player for PerudoPlayer {
         let mut outcomes = vec![
             (
                 TurnOutcome::Perudo,
-                bet.prob(state, ProbVariant::Perudo, self),
+                bet.prob(state, ProbVariant::Perudo, self.cloned()),
             ),
             (
                 TurnOutcome::Palafico,
-                bet.prob(state, ProbVariant::Palafico, self),
+                bet.prob(state, ProbVariant::Palafico, self.cloned()),
             ),
         ];
         outcomes.extend(
@@ -161,7 +166,7 @@ impl Player for PerudoPlayer {
                 .map(|b| {
                     (
                         TurnOutcome::Bet(*b.clone()),
-                        b.prob(state, ProbVariant::Bet, self),
+                        b.prob(state, ProbVariant::Bet, self.cloned()),
                     )
                 })
                 .collect::<Vec<(TurnOutcome, f64)>>(),
@@ -189,7 +194,7 @@ impl Player for PerudoPlayer {
         // TODO: Can almost make this fully generic, need to tie together e.g. PerudoPlayer,
         // PerudoBet, PerudoGame somehow.
         match current_outcome {
-            TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self)),
+            TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self.cloned())),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
             _ => panic!(),
         }
@@ -249,7 +254,7 @@ impl Player for PerudoPlayer {
 
             // Either return a valid bet or take input again.
             let bet = PerudoBet {
-                value: DieVal::from_usize(value),
+                value: Die::from_usize(value),
                 quantity: quantity,
             };
             return match current_outcome {
@@ -289,11 +294,11 @@ speculate! {
                 human: false,
                 hand: Hand::<Die> {
                     items: vec![
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six },
-                        Die{ val: DieVal::Six }
+                        Die::Six,
+                        Die::Six,
+                        Die::Six,
+                        Die::Six,
+                        Die::Six
                     ],
                 },
             };
@@ -303,12 +308,12 @@ speculate! {
             };
             let opponent_bet = &PerudoBet {
                 quantity: 4,
-                value: DieVal::Six,
+                value: Die::Six,
             };
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Bet(PerudoBet {
                 quantity: 5,
-                value: DieVal::Six,
+                value: Die::Six,
             }));
         }
 
@@ -318,7 +323,7 @@ speculate! {
                 human: false,
                 hand: Hand::<Die> {
                     items: vec![
-                        Die{ val: DieVal::Six },
+                        Die::Six
                     ],
                 },
             };
@@ -328,7 +333,7 @@ speculate! {
             };
             let opponent_bet = &PerudoBet {
                 quantity: 1,
-                value: DieVal::Six,
+                value: Die::Six,
             };
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Palafico);
