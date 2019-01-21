@@ -343,6 +343,10 @@ impl Bet for ScrabrudoBet {
         // TODO: If we introduce unequal letter probabilities then this needs updating too.
         let p = iter::repeat(1.0 / 26.0).take(26);
 
+        // We now generate 26-tuples of successful counts
+        // TODO: Probably there will always be more unsuccessful counts, invert?
+         
+
         0.0
     }
 

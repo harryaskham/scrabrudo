@@ -1,9 +1,11 @@
 /// Definition of a single tile.
 use crate::hand::*;
+use crate::testing;
 
 use rand::distributions::Standard;
 use rand::Rng;
 use std::cmp::Ord;
+use speculate::speculate;
 
 // TODO: Extended alphabets, wildcards
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -106,6 +108,10 @@ impl Tile {
         }
     }
 
+    pub fn as_usize(&self) -> usize {
+        (self.char() as u32 - 'a' as u32) as usize
+    }
+
     pub fn all() -> Vec<Tile> {
         vec![
             Tile::A,
@@ -169,6 +175,19 @@ impl rand::distributions::Distribution<Tile> for Standard {
             24 => Tile::Y,
             25 => Tile::Z,
             _ => panic!(),
+        }
+    }
+}
+
+speculate! {
+    before {
+        testing::set_up();
+    }
+
+    describe "tile" {
+        it "represents tiles as usize" {
+            assert_eq!(0, Tile::A.as_usize());
+            assert_eq!(25, Tile::Z.as_usize());
         }
     }
 }
