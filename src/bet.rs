@@ -313,8 +313,6 @@ impl Bet for ScrabrudoBet {
         Box::new(Self { tiles: vec![] })
     }
 
-    /// TODO: Better than random choice from equally likely bets.
-    /// TODO: Too much cloning here.
     fn best_first_bet(
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
@@ -365,7 +363,9 @@ impl fmt::Display for ScrabrudoBet {
 
 impl Ord for ScrabrudoBet {
     fn cmp(&self, other: &ScrabrudoBet) -> Ordering {
-        unimplemented!();
+        // TODO: This implements simple length-ordering - a raise must be longer, in other words.
+        // Experiment with other scoring systems.
+        self.tiles.len().cmp(&other.tiles.len())
     }
 }
 
@@ -412,6 +412,24 @@ speculate! {
             }
         }
         */
+
+        it "orders bets correctly" {
+            let bets = vec![
+                ScrabrudoBet::from_word("a".into()),
+                ScrabrudoBet::from_word("at".into()),
+                ScrabrudoBet::from_word("cat".into()),
+                ScrabrudoBet::from_word("chat".into()),
+                ScrabrudoBet::from_word("chart".into()),
+                ScrabrudoBet::from_word("chariot".into()),
+                ScrabrudoBet::from_word("chariots".into()),
+            ];
+
+            for i in 0..(bets.len() - 1) {
+                assert_eq!(bets[i], bets[i].clone());
+                assert!(bets[i] < bets[i + 1]);
+                assert!(bets[i + 1] > bets[i]);
+            }
+        }
     }
 
     describe "perudo bets" {
