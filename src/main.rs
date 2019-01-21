@@ -40,7 +40,7 @@ fn main() {
         human_indices.insert(args[2].parse::<usize>().unwrap());
     }
 
-    let mut game = Game::new(num_players, human_indices);
+    let mut game = PerudoGame::new(num_players, human_indices);
     loop {
         game = game.run_turn();
         match game.current_outcome {

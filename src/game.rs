@@ -28,7 +28,10 @@ pub struct GameState {
     pub num_items_per_player: Vec<usize>
 }
 
-pub trait RenameGame {
+// TODO: Add associated types here. E.g. if you want to implement the Game trait you need to
+// specify Die or DieVal - you need to specify a Player type (maybe not though - maybe the player
+// conditions on the item type?) and you need to specify a Bet type.
+pub trait Game {
     /// Gets a state representation of the game.
     fn state(&self) -> GameState {
         GameState {
@@ -52,16 +55,16 @@ pub trait RenameGame {
     }
 
     /// Immutably runs a single turn of the game, returning a new Game with updated state.
-    fn run_turn(&self) -> Game;
+    fn run_turn(&self) -> PerudoGame;
 }
 
-pub struct Game {
+pub struct PerudoGame {
     pub players: Vec<Box<dyn Player>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
 
-impl fmt::Display for Game {
+impl fmt::Display for PerudoGame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -75,7 +78,7 @@ impl fmt::Display for Game {
     }
 }
 
-impl RenameGame for Game {
+impl Game for PerudoGame {
     fn num_items_with(&self, val: DieVal) -> usize {
         self.players
             .iter()
@@ -97,7 +100,7 @@ impl RenameGame for Game {
     }
 
     // Runs a turn and either finishes or sets up for the next turn.
-    fn run_turn(&self) -> Game {
+    fn run_turn(&self) -> PerudoGame {
         let last_bet = self.last_bet();
 
         // Get the current state based on this player's move.
@@ -109,7 +112,7 @@ impl RenameGame for Game {
         match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id(), bet);
-                return Game {
+                return PerudoGame {
                     players: self.cloned_players(),
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
@@ -166,7 +169,7 @@ impl RenameGame for Game {
 
 }
 
-impl Game {
+impl PerudoGame {
     pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut game = Self {
             players: Vec::new(),
@@ -209,7 +212,7 @@ impl Game {
     }
 
     /// Ends the turn in Palafico and returns the new game state.
-    pub fn with_end_turn_palafico(&self, winner_index: usize) -> Game {
+    pub fn with_end_turn_palafico(&self, winner_index: usize) -> PerudoGame {
         let winner = &self.players[winner_index];
         // Refresh all players, winner gains a die.
         let players = self
@@ -229,7 +232,7 @@ impl Game {
                 }
             })
             .collect();
-        return Game {
+        return PerudoGame {
             players: players,
             current_index: winner_index,
             current_outcome: TurnOutcome::First,
@@ -262,7 +265,7 @@ impl Game {
     }
 
     /// Ends the turn and returns the new game state.
-    pub fn with_end_turn(&self, loser_index: usize) -> Game {
+    pub fn with_end_turn(&self, loser_index: usize) -> PerudoGame {
         let loser = &self.players[loser_index];
         if loser.num_items() == 1 {
             info!("Player {} is disqualified", loser.id());
@@ -273,14 +276,14 @@ impl Game {
             let current_index = (loser_index % players.len()) as usize;
 
             if players.len() > 1 {
-                return Game {
+                return PerudoGame {
                     players: players,
                     current_index: current_index,
                     current_outcome: TurnOutcome::First,
                 };
             } else {
                 info!("Player {} wins!", players[0].id());
-                return Game {
+                return PerudoGame {
                     players: players,
                     current_index: 0,
                     current_outcome: TurnOutcome::Win,
@@ -296,7 +299,7 @@ impl Game {
             );
 
             // Reset and prepare for the next turn.
-            return Game {
+            return PerudoGame {
                 players: players,
                 current_index: loser_index,
                 current_outcome: TurnOutcome::First,
@@ -310,9 +313,9 @@ speculate! {
         testing::set_up();
     }
 
-    describe "a game" {
+    describe "a perudo game" {
         it "runs to completion" {
-            let mut game = Game::new(6, HashSet::new());
+            let mut game = PerudoGame::new(6, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
