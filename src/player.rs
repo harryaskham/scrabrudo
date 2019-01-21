@@ -2,7 +2,7 @@
 use crate::bet::*;
 use crate::game::*;
 use crate::hand::*;
-use crate::hand::*;
+use crate::die::*;
 use crate::testing;
 
 use rand::seq::SliceRandom;

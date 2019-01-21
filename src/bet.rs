@@ -1,5 +1,6 @@
 use crate::game::*;
 use crate::hand::*;
+use crate::die::*;
 /// Bet definitions and related logic.
 use crate::player::*;
 use crate::testing;
