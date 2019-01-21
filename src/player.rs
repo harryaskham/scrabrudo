@@ -97,6 +97,8 @@ impl Player for PerudoPlayer {
 
     /// TODO: These methods can all move to the base now, predicated on our V type.
     /// We don't need to define what dealing means for every new type.
+    /// However, not sure how best to do this (could e.g. have new() and human() on the trait but
+    /// feels like shared initializers should be doable.
     fn without_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: self.id,
