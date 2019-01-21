@@ -55,7 +55,7 @@ pub trait Game {
     }
 
     /// Immutably runs a single turn of the game, returning a new Game with updated state.
-    fn run_turn(&self) -> PerudoGame;
+    fn run_turn(&self) -> Box<Self>;
 }
 
 pub struct PerudoGame {
@@ -100,7 +100,7 @@ impl Game for PerudoGame {
     }
 
     // Runs a turn and either finishes or sets up for the next turn.
-    fn run_turn(&self) -> PerudoGame {
+    fn run_turn(&self) -> Box<Self> {
         let last_bet = self.last_bet();
 
         // Get the current state based on this player's move.
@@ -112,12 +112,12 @@ impl Game for PerudoGame {
         match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id(), bet);
-                return PerudoGame {
+                Box::new(PerudoGame {
                     players: self.cloned_players(),
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
-                };
-            }
+                })
+            },
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id());
                 let loser_index: usize;
@@ -141,7 +141,7 @@ impl Game for PerudoGame {
                         (self.current_index + self.players.len() - 1) % self.players.len();
                 };
                 self.with_end_turn(loser_index)
-            }
+            },
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id());
                 let actual_amount = self.num_logical_items(last_bet.value.clone());
@@ -162,7 +162,7 @@ impl Game for PerudoGame {
                     );
                     self.with_end_turn(self.current_index)
                 }
-            }
+            },
             _ => panic!(),
         }
     }
@@ -212,7 +212,7 @@ impl PerudoGame {
     }
 
     /// Ends the turn in Palafico and returns the new game state.
-    pub fn with_end_turn_palafico(&self, winner_index: usize) -> PerudoGame {
+    pub fn with_end_turn_palafico(&self, winner_index: usize) -> Box<PerudoGame> {
         let winner = &self.players[winner_index];
         // Refresh all players, winner gains a die.
         let players = self
@@ -232,11 +232,11 @@ impl PerudoGame {
                 }
             })
             .collect();
-        return PerudoGame {
+        Box::new(PerudoGame {
             players: players,
             current_index: winner_index,
             current_outcome: TurnOutcome::First,
-        };
+        })
     }
 
     /// Gets a cloned refreshed view on the players.
@@ -265,7 +265,7 @@ impl PerudoGame {
     }
 
     /// Ends the turn and returns the new game state.
-    pub fn with_end_turn(&self, loser_index: usize) -> PerudoGame {
+    pub fn with_end_turn(&self, loser_index: usize) -> Box<PerudoGame> {
         let loser = &self.players[loser_index];
         if loser.num_items() == 1 {
             info!("Player {} is disqualified", loser.id());
@@ -276,18 +276,18 @@ impl PerudoGame {
             let current_index = (loser_index % players.len()) as usize;
 
             if players.len() > 1 {
-                return PerudoGame {
+                return Box::new(PerudoGame {
                     players: players,
                     current_index: current_index,
                     current_outcome: TurnOutcome::First,
-                };
+                });
             } else {
                 info!("Player {} wins!", players[0].id());
-                return PerudoGame {
+                return Box::new(PerudoGame {
                     players: players,
                     current_index: 0,
                     current_outcome: TurnOutcome::Win,
-                };
+                });
             }
         } else {
             // Refresh all players, loser loses an item.
@@ -299,11 +299,11 @@ impl PerudoGame {
             );
 
             // Reset and prepare for the next turn.
-            return PerudoGame {
+            return Box::new(PerudoGame {
                 players: players,
                 current_index: loser_index,
                 current_outcome: TurnOutcome::First,
-            };
+            });
         }
     }
 }
@@ -315,7 +315,7 @@ speculate! {
 
     describe "a perudo game" {
         it "runs to completion" {
-            let mut game = PerudoGame::new(6, HashSet::new());
+            let mut game = Box::new(PerudoGame::new(6, HashSet::new()));
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
