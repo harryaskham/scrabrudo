@@ -41,8 +41,11 @@ pub trait Game {
     /// Creates a new instance of the game.
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
 
+    /// Creates a new instance with the given fields.
+    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome) -> Self;
+
     /// Creates a new player.
-    fn create_player(id: usize, human: bool) -> Self::P;
+    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
 
     /// Gets a list of all the players.
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
@@ -147,8 +150,8 @@ impl Game for PerudoGame {
     type B = PerudoBet;
     type P = PerudoPlayer;
 
-    fn create_player(id: usize, human: bool) -> PerudoPlayer {
-        PerudoPlayer::new(id, human)
+    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+        Box::new(PerudoPlayer::new(id, human))
     }
 
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
@@ -156,20 +159,22 @@ impl Game for PerudoGame {
     }
 
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
-        let mut game = Self {
-            players: Vec::new(),
-            current_index: 0,
-            current_outcome: TurnOutcome::First,
-        };
-
+        let mut players = Vec::new();
         for id in 0..num_players {
-            game.players.push(Box::new(Self::create_player(
+            players.push(Self::create_player(
                 id,
                 human_indices.contains(&id),
-            )));
+            ));
         }
+        Self::new_with(players, 0, TurnOutcome::First)
+    }
 
-        game
+    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome) -> Self {
+        Self {
+            players: players,
+            current_index: current_index,
+            current_outcome: current_outcome
+        }
     }
 
     // Gets the actual number of dice around the table, allowing for wildcards.
