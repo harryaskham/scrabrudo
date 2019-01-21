@@ -99,6 +99,21 @@ pub trait Game {
             })
             .collect()
     }
+
+    /// Gets the players refreshed with one player winning.
+    fn refreshed_players_with_gain(&self, winner_index: usize) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
+        self.players()
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if i == winner_index && p.num_items() < 5 {
+                    p.with_one()
+                } else {
+                    p.refresh()
+                }
+            })
+            .collect()
+    }
 }
 
 pub struct PerudoGame {
@@ -267,25 +282,10 @@ impl PerudoGame {
 
     /// Ends the turn in Palafico and returns the new game state.
     pub fn with_end_turn_palafico(&self, winner_index: usize) -> Box<PerudoGame> {
-        let winner = &self.players[winner_index];
-        // Refresh all players, winner gains a die.
-        let players = self
-            .players
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                if i == winner_index && p.num_items() < 5 {
-                    info!(
-                        "Player {} gains a die, now has {}",
-                        winner.id(),
-                        p.num_items() + 1
-                    );
-                    p.with_one()
-                } else {
-                    p.refresh()
-                }
-            })
-            .collect();
+        // Refresh all players, winner maybe gains a die.
+        let players = self.refreshed_players_with_gain(winner_index);
+        let winner = &players[winner_index];
+        info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
         Box::new(PerudoGame {
             players: players,
             current_index: winner_index,
