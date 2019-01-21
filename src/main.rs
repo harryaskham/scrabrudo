@@ -15,6 +15,7 @@ pub mod bet;
 pub mod game;
 pub mod die;
 pub mod hand;
+pub mod tile;
 pub mod player;
 pub mod testing;
 

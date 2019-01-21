@@ -1,6 +1,7 @@
 /// Logic related to dealing hands.
 use crate::testing;
 use crate::die::*;
+use crate::tile::*;
 
 use speculate::speculate;
 
@@ -55,6 +56,13 @@ speculate! {
     describe "dealing dice" {
         it "deals a hand of five" {
             let hand = Hand::<Die>::new(5);
+            assert_eq!(5, hand.items.len());
+        }
+    }
+
+    describe "dealing tiles" {
+        it "deals a hand of five" {
+            let hand = Hand::<Tile>::new(5);
             assert_eq!(5, hand.items.len());
         }
     }

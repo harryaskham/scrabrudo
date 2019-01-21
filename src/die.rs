@@ -1,4 +1,4 @@
-/// Definition of a single die.
+/// Definition of a single tile.
 
 use crate::hand::*;
 
@@ -14,6 +14,12 @@ pub enum Die {
     Four,
     Five,
     Six,
+}
+
+impl Holdable for Die {
+    fn get_random() -> Self {
+        rand::random()
+    }
 }
 
 impl Die {
@@ -57,11 +63,5 @@ impl rand::distributions::Distribution<Die> for Standard {
             6 => Die::Six,
             _ => panic!(),
         }
-    }
-}
-
-impl Holdable for Die {
-    fn get_random() -> Self {
-        rand::random()
     }
 }
