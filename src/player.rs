@@ -44,6 +44,9 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
 
+    /// The actual  items in the hand.
+    fn items(&self) -> &Vec<Self::V>;
+
     /// The total number of dice with the given explicit value (no wildcards).
     fn num_items_with(&self, val: Self::V) -> usize;
 
@@ -141,6 +144,10 @@ impl Player for PerudoPlayer {
 
     fn num_items(&self) -> usize {
         self.hand.items.len()
+    }
+
+    fn items(&self) -> &Vec<Self::V> {
+        &self.hand.items
     }
 
     fn num_items_with(&self, val: Die) -> usize {

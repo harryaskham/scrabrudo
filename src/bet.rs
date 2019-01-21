@@ -15,6 +15,7 @@ use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
+use std::iter;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 
@@ -38,6 +39,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     fn smallest() -> Box<Self>;
 
     /// Pick the best bet from those available for a first go.
+    /// TODO: Better than random choice from equally likely bets.
     fn best_first_bet(
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
@@ -63,8 +65,14 @@ pub trait Bet: Ord + Clone + fmt::Display {
     fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64;
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    fn perudo_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>)
-        -> f64;
+    /// This will always just be the negation of P(bet).
+    fn perudo_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
+        1.0 - self.bet_prob(state, player)
+    }
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
@@ -137,19 +145,6 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn prob(
-        &self,
-        state: &GameState,
-        variant: ProbVariant,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
-    ) -> f64 {
-        match variant {
-            ProbVariant::Bet => self.bet_prob(state, player),
-            ProbVariant::Perudo => self.perudo_prob(state, player),
-            ProbVariant::Palafico => self.palafico_prob(state, player),
-        }
-    }
-
     fn smallest() -> Box<Self> {
         Box::new(Self {
             quantity: 0,
@@ -157,22 +152,16 @@ impl Bet for PerudoBet {
         })
     }
 
-    /// TODO: Better than random choice from equally likely bets.
     /// TODO: Too much cloning here.
     fn best_first_bet(
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self> {
-        let bets = Self::first_bets(state, player.cloned());
+        let bets = Self::ordered_bets(state, player.cloned())
+            .into_iter()
+            .filter(|b| b.value != Die::One)
+            .collect::<Vec<Box<Self>>>();
         Self::best_bet_from(state, player, bets)
-    }
-
-    fn perudo_prob(
-        &self,
-        state: &GameState,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
-    ) -> f64 {
-        1.0 - self.bet_prob(state, player)
     }
 
     fn palafico_prob(
@@ -218,25 +207,6 @@ impl Bet for PerudoBet {
         ((self.quantity - guaranteed_quantity)..=num_other_dice)
             .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
             .sum::<f64>()
-    }
-}
-
-impl PerudoBet {
-    /// Get the allowed first bets - everything but ones.
-    /// Bets are ordered by their probability of occuring.
-    fn first_bets(state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> Vec<Box<Self>> {
-        Self::ordered_bets(state, player)
-            .into_iter()
-            .filter(|b| b.value != Die::One)
-            .collect::<Vec<Box<Self>>>()
-    }
-
-    /// All the valid bets without aces, for first-turn purposes.
-    pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
-        PerudoBet::all(state)
-            .into_iter()
-            .filter(|b| b.value != Die::One)
-            .collect::<Vec<Box<PerudoBet>>>()
     }
 }
 
@@ -332,12 +302,48 @@ impl Bet for ScrabrudoBet {
         Self::best_bet_from(state, player, bets)
     }
 
-    fn perudo_prob(
-        &self,
-        state: &GameState,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
-    ) -> f64 {
-        unimplemented!();
+    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+        // Rough algorithm for calculating probability of bet correctness:
+        // for e.g. target = [A, T, T, A, C, K], n = 20, hand = [X, X, A, K]
+        // Take the difference of the target and the hand. This leaves the letters we seek from the
+        // wider tile pool.
+        //
+        // [A T T A C K] - [X X A K] = [T T A C]
+        //
+        // This is no longer "3" or "NOT 3" as in Perudo - this is a multinomial probability.
+        // e.g. We need at least 2xT, 1xA, 1xC from the same pool of dice.
+        // We can therefore enumerate all winning cases as the set of tuple counts:
+        // SUM { P(C=c A=a T=t; n=16, p=[1/26..]) | c>=1 a>=1 t>=2, c+a+t<=16 }
+        //
+        // However this hugely explodes the problem as we also need to account for all numbers of
+        // letters other than C A and T. Doing this triple generation naively will result in huge
+        // numbers of candidates.
+        //
+        // A huge precomputed table from e.g. [w = ATTACK,ATTAC,ATTAK... -> P(w)] is plausible if
+        // the computation takes very long, but not ideal.
+
+        // First get the set of tiles we need to find.
+        let mut tiles_to_find = self.tiles.clone();
+        for tile in player.items() {
+            match tiles_to_find.binary_search(tile) {
+                Ok(i) => { tiles_to_find.remove(i); }
+                Err(_) => ()
+            };
+        }
+
+        // If we have all the tiles, it's a guaranteed hit.
+        if tiles_to_find.is_empty() {
+            return 1.0
+        }
+
+        // Otherwise we need to search for them in the remaining tiles.
+        let num_tiles = state.total_num_items - player.num_items();
+
+        // The class probabilities are all equal here.
+        // TODO: If we introduce unequal letter probabilities then this needs updating too.
+        let p = iter::repeat(1.0 / 26.0).take(26);
+
+        0.0
     }
 
     fn palafico_prob(
@@ -345,11 +351,11 @@ impl Bet for ScrabrudoBet {
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
-        unimplemented!();
-    }
-
-    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
-        unimplemented!();
+        // TODO: This will stop the computer from ever considering Palafico but we should revisit
+        // when decided upon a meaning for the rule.
+        // If we decide it's no-duplicates-allowed then we have
+        // P(C=1 A=1 T=2 | n=16, p=[1/26..])
+        0.0
     }
 }
 
