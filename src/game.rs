@@ -30,7 +30,7 @@ pub struct GameState {
 
 pub trait Game {
     /// The associated value-type of a given hand item.
-    type V: Holdable;
+    type V: Holdable + Clone;
 
     /// The Bet type to use.
     type B: Bet;
@@ -44,6 +44,15 @@ pub trait Game {
     /// Creates a new player.
     fn create_player(id: usize, human: bool) -> Self::P;
 
+    /// Gets a list of all the players.
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
+
+    /// Gets the logical number of total items e.g. including wildcards.
+    fn num_logical_items(&self, val: Self::V) -> usize;
+
+    /// Immutably runs a single turn of the game, returning a new Game with updated state.
+    fn run_turn(&self) -> Box<Self>;
+
     /// Gets a state representation of the game.
     fn state(&self) -> GameState {
         GameState {
@@ -51,26 +60,23 @@ pub trait Game {
             num_items_per_player: self.num_items_per_player(),
         }
     }
-
-    /// Gets the total number of items with the exact value given.
-    fn num_items_with(&self, val: Self::V) -> usize;
-
-    /// Gets the logical number of total items e.g. including wildcards.
-    fn num_logical_items(&self, val: Self::V) -> usize;
+    
+    fn num_items_with(&self, val: Self::V) -> usize {
+        self.players()
+            .iter()
+            .map(|p| p.num_items_with(val.clone()))
+            .sum()
+    }
 
     /// Gets the number of items remaining per player by index.
-    fn num_items_per_player(&self) -> Vec<usize>;
+    fn num_items_per_player(&self) -> Vec<usize> {
+        self.players().iter().map(|p| p.num_items()).collect()
+    }
 
     /// Gets the total number of remaining items.
     fn total_num_items(&self) -> usize {
         self.num_items_per_player().iter().sum()
     }
-
-    /// Immutably runs a single turn of the game, returning a new Game with updated state.
-    fn run_turn(&self) -> Box<Self>;
-
-    /// Gets a list of all the players.
-    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
 
     /// Gets a cloned refreshed view on the players.
     fn refreshed_players(&self) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
@@ -166,13 +172,6 @@ impl Game for PerudoGame {
         game
     }
 
-    fn num_items_with(&self, val: Die) -> usize {
-        self.players
-            .iter()
-            .map(|p| p.num_items_with(val.clone()))
-            .sum()
-    }
-
     // Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_items(&self, val: Die) -> usize {
         if val == Die::One {
@@ -180,10 +179,6 @@ impl Game for PerudoGame {
         } else {
             self.num_items_with(Die::One) + self.num_items_with(val)
         }
-    }
-
-    fn num_items_per_player(&self) -> Vec<usize> {
-        self.players.iter().map(|p| p.num_items()).collect()
     }
 
     // Runs a turn and either finishes or sets up for the next turn.
@@ -273,7 +268,6 @@ impl PerudoGame {
     // Gets the last bet issued.
     pub fn last_bet(&self) -> PerudoBet {
         match &self.current_outcome {
-            // TODO: Remove this hacky thing with e.g. PerudoBet::min()
             TurnOutcome::First => *PerudoBet::smallest(),
             TurnOutcome::Bet(bet) => bet.clone(),
             _ => panic!(),
@@ -281,8 +275,11 @@ impl PerudoGame {
     }
 
     /// Ends the turn in Palafico and returns the new game state.
+    /// TODO: Split some of this up and move into the trait.
+    /// The only thing left down here should be instantiation of the game and maybe even this can
+    /// be done via trait-homed, since we don't need to box up game.
     pub fn with_end_turn_palafico(&self, winner_index: usize) -> Box<PerudoGame> {
-        // Refresh all players, winner maybe gains a die.
+        // Refresh all players, winner maybe gains a item.
         let players = self.refreshed_players_with_gain(winner_index);
         let winner = &players[winner_index];
         info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
