@@ -189,15 +189,10 @@ impl Player for PerudoPlayer {
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    // TODO: Probably should move to game.rs
     fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
         if self.human {
-            // TODO: More elegant way of implementing multiple play strategies.
             return self.human_play(state, current_outcome);
         }
-
-        // TODO: Can almost make this fully generic, need to tie together e.g. PerudoPlayer,
-        // PerudoBet, PerudoGame somehow.
         match current_outcome {
             TurnOutcome::First => {
                 TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self.cloned()))
@@ -207,7 +202,6 @@ impl Player for PerudoPlayer {
         }
     }
 
-    // TODO: Probably should move to game.rs
     fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
         loop {
             info!(
