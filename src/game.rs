@@ -32,6 +32,19 @@ pub struct GameState {
 // specify Die or DieVal - you need to specify a Player type (maybe not though - maybe the player
 // conditions on the item type?) and you need to specify a Bet type.
 pub trait Game {
+    /// The associated value-type of a given hand item.
+    /// TODO: Should really be Holdable... can't restrict this here.
+    type V;
+
+    /// The associated type of a Player
+    type P: Player;
+
+    /// Creates a new instance of the game.
+    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
+
+    /// Creates a new player.
+    fn create_player(id: usize, human: bool) -> Self::P;
+
     /// Gets a state representation of the game.
     fn state(&self) -> GameState {
         GameState {
@@ -41,10 +54,10 @@ pub trait Game {
     }
 
     /// Gets the total number of items with the exact value given.
-    fn num_items_with(&self, val: DieVal) -> usize;
+    fn num_items_with(&self, val: Self::V) -> usize;
 
     /// Gets the logical number of total items e.g. including wildcards.
-    fn num_logical_items(&self, val: DieVal) -> usize;
+    fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Gets the number of items remaining per player by index.
     fn num_items_per_player(&self) -> Vec<usize>;
@@ -79,6 +92,27 @@ impl fmt::Display for PerudoGame {
 }
 
 impl Game for PerudoGame {
+    type V = DieVal;
+    type P = PerudoPlayer;
+
+    fn create_player(id: usize, human: bool) -> PerudoPlayer {
+        PerudoPlayer::new(id, human)
+    }
+
+    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
+        let mut game = Self {
+            players: Vec::new(),
+            current_index: 0,
+            current_outcome: TurnOutcome::First,
+        };
+
+        for id in 0..num_players {
+            game.players.push(Box::new(Self::create_player(id, human_indices.contains(&id))));
+        }
+
+        game
+    }
+
     fn num_items_with(&self, val: DieVal) -> usize {
         self.players
             .iter()
@@ -170,23 +204,6 @@ impl Game for PerudoGame {
 }
 
 impl PerudoGame {
-    pub fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
-        let mut game = Self {
-            players: Vec::new(),
-            current_index: 0,
-            current_outcome: TurnOutcome::First,
-        };
-
-        for id in 0..num_players {
-            let human = human_indices.contains(&id);
-            // TODO: Move this Perudo-specific logic into PerudoGame.
-            let player = PerudoPlayer::new(id, human);
-            game.players.push(Box::new(player));
-        }
-
-        game
-    }
-
     // TODO: Candidate for moving into Bet
     pub fn is_correct(&self, bet: &PerudoBet) -> bool {
         let max_correct_bet = PerudoBet {

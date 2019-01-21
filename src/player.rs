@@ -50,7 +50,6 @@ pub trait Player: fmt::Debug + fmt::Display {
 
     /// Control logic for having a human play the game.
     fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
-
 }
 
 #[derive(Debug, Clone)]
