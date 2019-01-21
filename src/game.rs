@@ -28,7 +28,9 @@ pub struct GameState {
     pub num_items_per_player: Vec<usize>,
 }
 
-pub trait Game {
+/// Trait implemented by all game types.
+/// Most rule-logic lives in the trait as it does not differ from game to game.
+pub trait Game: Sized {
     /// The associated value-type of a given hand item.
     type V: Holdable + Clone;
 
@@ -57,7 +59,7 @@ pub trait Game {
     fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Immutably runs a single turn of the game, returning a new Game with updated state.
-    fn run_turn(&self) -> Box<Self>;
+    fn run_turn(&self) -> Self;
 
     /// Gets a state representation of the game.
     fn state(&self) -> GameState {
@@ -135,6 +137,45 @@ pub trait Game {
             _ => panic!(),
         }
     }
+
+    /// Ends the turn and returns the new game state.
+    fn with_end_turn(&self, loser_index: usize) -> Self {
+        let loser = &self.players()[loser_index];
+        if loser.num_items() == 1 {
+            info!("Player {} is disqualified", loser.id());
+
+            // Clone the players with new hands, without the loser.
+            let mut players = self.refreshed_players();
+            players.remove(loser_index);
+            let current_index = (loser_index % players.len()) as usize;
+
+            if players.len() > 1 {
+                return Self::new_with(players, current_index, TurnOutcome::First);
+            } else {
+                info!("Player {} wins!", players[0].id());
+                return Self::new_with(players, 0, TurnOutcome::Win);
+            }
+        } else {
+            // Refresh all players, loser loses an item.
+            let players = self.refreshed_players_with_loss(loser_index);
+            info!(
+                "Player {} loses a die, now has {}",
+                players[loser_index].id(),
+                players[loser_index].num_items()
+            );
+            // Reset and prepare for the next turn.
+            return Self::new_with(players, loser_index, TurnOutcome::First);
+        }
+    }
+
+    /// Ends the turn in Palafico and returns the new game state.
+    fn with_end_turn_palafico(&self, winner_index: usize) -> Self {
+        // Refresh all players, winner maybe gains a item.
+        let players = self.refreshed_players_with_gain(winner_index);
+        let winner = &players[winner_index];
+        info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
+        Self::new_with(players, winner_index, TurnOutcome::First)
+    }
 }
 
 pub struct PerudoGame {
@@ -203,7 +244,7 @@ impl Game for PerudoGame {
     }
 
     // Runs a turn and either finishes or sets up for the next turn.
-    fn run_turn(&self) -> Box<Self> {
+    fn run_turn(&self) -> Self {
         let last_bet = self.last_bet();
 
         // Get the current state based on this player's move.
@@ -215,11 +256,12 @@ impl Game for PerudoGame {
         match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id(), bet);
-                Box::new(PerudoGame {
+
+                PerudoGame {
                     players: self.cloned_players(),
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
-                })
+                }
             }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id());
@@ -286,64 +328,6 @@ impl PerudoGame {
         self.num_logical_items(bet.value.clone()) == bet.quantity
     }
 
-    /// Ends the turn in Palafico and returns the new game state.
-    /// TODO: Split some of this up and move into the trait.
-    /// The only thing left down here should be instantiation of the game and maybe even this can
-    /// be done via trait-homed, since we don't need to box up game.
-    pub fn with_end_turn_palafico(&self, winner_index: usize) -> Box<PerudoGame> {
-        // Refresh all players, winner maybe gains a item.
-        let players = self.refreshed_players_with_gain(winner_index);
-        let winner = &players[winner_index];
-        info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
-        Box::new(PerudoGame {
-            players: players,
-            current_index: winner_index,
-            current_outcome: TurnOutcome::First,
-        })
-    }
-
-    /// Ends the turn and returns the new game state.
-    pub fn with_end_turn(&self, loser_index: usize) -> Box<PerudoGame> {
-        let loser = &self.players[loser_index];
-        if loser.num_items() == 1 {
-            info!("Player {} is disqualified", loser.id());
-
-            // Clone the players with new hands, without the loser.
-            let mut players = self.refreshed_players();
-            players.remove(loser_index);
-            let current_index = (loser_index % players.len()) as usize;
-
-            if players.len() > 1 {
-                return Box::new(PerudoGame {
-                    players: players,
-                    current_index: current_index,
-                    current_outcome: TurnOutcome::First,
-                });
-            } else {
-                info!("Player {} wins!", players[0].id());
-                return Box::new(PerudoGame {
-                    players: players,
-                    current_index: 0,
-                    current_outcome: TurnOutcome::Win,
-                });
-            }
-        } else {
-            // Refresh all players, loser loses an item.
-            let players = self.refreshed_players_with_loss(loser_index);
-            info!(
-                "Player {} loses a die, now has {}",
-                players[loser_index].id(),
-                players[loser_index].num_items()
-            );
-
-            // Reset and prepare for the next turn.
-            return Box::new(PerudoGame {
-                players: players,
-                current_index: loser_index,
-                current_outcome: TurnOutcome::First,
-            });
-        }
-    }
 }
 
 speculate! {
@@ -353,7 +337,7 @@ speculate! {
 
     describe "a perudo game" {
         it "runs to completion" {
-            let mut game = Box::new(PerudoGame::new(6, HashSet::new()));
+            let mut game = PerudoGame::new(6, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
