@@ -24,16 +24,16 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn id(&self) -> usize;
 
     /// A copy of the player with an item missing.
-    fn without_one(&self) -> Box<Player<B=Self::B>>;
+    fn without_one(&self) -> Box<Player<B = Self::B>>;
 
     /// A copy of the player with an extra item.
-    fn with_one(&self) -> Box<Player<B=Self::B>>;
+    fn with_one(&self) -> Box<Player<B = Self::B>>;
 
     /// A fresh instance of player with a new hand.
-    fn refresh(&self) -> Box<Player<B=Self::B>>;
+    fn refresh(&self) -> Box<Player<B = Self::B>>;
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<Player<B=Self::B>>;
+    fn cloned(&self) -> Box<Player<B = Self::B>>;
 
     /// Gets the best turn outcome above a certain bet.
     fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome;
@@ -92,7 +92,7 @@ impl Player for PerudoPlayer {
         self.id
     }
 
-    fn without_one(&self) -> Box<Player<B=PerudoBet>> {
+    fn without_one(&self) -> Box<Player<B = PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -100,7 +100,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn with_one(&self) -> Box<Player<B=PerudoBet>> {
+    fn with_one(&self) -> Box<Player<B = PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -108,7 +108,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn refresh(&self) -> Box<Player<B=PerudoBet>> {
+    fn refresh(&self) -> Box<Player<B = PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -116,7 +116,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn cloned(&self) -> Box<Player<B=PerudoBet>> {
+    fn cloned(&self) -> Box<Player<B = PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -200,8 +200,7 @@ impl Player for PerudoPlayer {
         loop {
             info!(
                 "Dice left: {:?} ({})",
-                state.num_items_per_player,
-                state.total_num_items
+                state.num_items_per_player, state.total_num_items
             );
             info!("Hand for Player {}", self);
             match current_outcome {

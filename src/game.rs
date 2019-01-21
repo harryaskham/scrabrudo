@@ -25,7 +25,7 @@ pub struct GameState {
     pub total_num_items: usize,
 
     /// The number of items remaining with each player.
-    pub num_items_per_player: Vec<usize>
+    pub num_items_per_player: Vec<usize>,
 }
 
 // TODO: Add associated types here. E.g. if you want to implement the Game trait you need to
@@ -40,7 +40,7 @@ pub trait Game {
     type B: Bet;
 
     /// The associated type of a Player
-    type P: Player<B=Self::B>;
+    type P: Player<B = Self::B>;
 
     /// Creates a new instance of the game.
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
@@ -52,7 +52,7 @@ pub trait Game {
     fn state(&self) -> GameState {
         GameState {
             total_num_items: self.total_num_items(),
-            num_items_per_player: self.num_items_per_player()
+            num_items_per_player: self.num_items_per_player(),
         }
     }
 
@@ -74,20 +74,20 @@ pub trait Game {
     fn run_turn(&self) -> Box<Self>;
 
     /// Gets a list of all the players.
-    fn players(&self) -> &Vec<Box<dyn Player<B=Self::B>>>;
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B>>>;
 
     /// Gets a cloned refreshed view on the players.
-    fn refreshed_players(&self) -> Vec<Box<dyn Player<B=Self::B>>> {
+    fn refreshed_players(&self) -> Vec<Box<dyn Player<B = Self::B>>> {
         self.players().iter().map(|p| p.refresh()).collect()
     }
 
     /// Clones players without touching their hands.
-    fn cloned_players(&self) -> Vec<Box<dyn Player<B=Self::B>>> {
+    fn cloned_players(&self) -> Vec<Box<dyn Player<B = Self::B>>> {
         self.players().iter().map(|p| p.cloned()).collect()
     }
 
     /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B=Self::B>>> {
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B = Self::B>>> {
         self.players()
             .iter()
             .enumerate()
@@ -100,11 +100,10 @@ pub trait Game {
             })
             .collect()
     }
-
 }
 
 pub struct PerudoGame {
-    pub players: Vec<Box<dyn Player<B=PerudoBet>>>,
+    pub players: Vec<Box<dyn Player<B = PerudoBet>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
@@ -132,7 +131,7 @@ impl Game for PerudoGame {
         PerudoPlayer::new(id, human)
     }
 
-    fn players(&self) -> &Vec<Box<dyn Player<B=Self::B>>> {
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B>>> {
         &self.players
     }
 
@@ -144,7 +143,10 @@ impl Game for PerudoGame {
         };
 
         for id in 0..num_players {
-            game.players.push(Box::new(Self::create_player(id, human_indices.contains(&id))));
+            game.players.push(Box::new(Self::create_player(
+                id,
+                human_indices.contains(&id),
+            )));
         }
 
         game
@@ -188,7 +190,7 @@ impl Game for PerudoGame {
                     current_index: (self.current_index + 1) % self.players.len(),
                     current_outcome: TurnOutcome::Bet(bet.clone()),
                 })
-            },
+            }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id());
                 let loser_index: usize;
@@ -212,7 +214,7 @@ impl Game for PerudoGame {
                         (self.current_index + self.players.len() - 1) % self.players.len();
                 };
                 self.with_end_turn(loser_index)
-            },
+            }
             TurnOutcome::Palafico => {
                 info!("Player {} calls Palafico", player.id());
                 let actual_amount = self.num_logical_items(last_bet.value.clone());
@@ -233,11 +235,10 @@ impl Game for PerudoGame {
                     );
                     self.with_end_turn(self.current_index)
                 }
-            },
+            }
             _ => panic!(),
         }
     }
-
 }
 
 impl PerudoGame {
