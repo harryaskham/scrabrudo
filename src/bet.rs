@@ -34,10 +34,18 @@ pub trait Bet: Ord + Clone {
     fn smallest() -> Box<Self>;
 
     /// Pick the best bet from those available for a first go.
-    fn best_first_bet(state: &GameState, player: Box<dyn Player<V=Self::V, B=Self>>) -> Box<Self>;
+    fn best_first_bet(
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> Box<Self>;
 
     /// Get the probability of this bet being correct.
-    fn prob(&self, state: &GameState, variant: ProbVariant, player: Box<dyn Player<V=Self::V, B=Self>>) -> f64;
+    fn prob(
+        &self,
+        state: &GameState,
+        variant: ProbVariant,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64;
 }
 
 /// The different types of Bet one can make in Perudo.
@@ -69,7 +77,12 @@ impl Bet for PerudoBet {
             .collect::<Vec<Box<PerudoBet>>>()
     }
 
-    fn prob(&self, state: &GameState, variant: ProbVariant, player: Box<dyn Player<V=Self::V, B=Self>>) -> f64 {
+    fn prob(
+        &self,
+        state: &GameState,
+        variant: ProbVariant,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
         match variant {
             ProbVariant::Bet => self.bet_prob(state, player),
             ProbVariant::Perudo => self.perudo_prob(state, player),
@@ -86,7 +99,10 @@ impl Bet for PerudoBet {
 
     /// TODO: Better than random choice from equally likely bets.
     /// TODO: Too much cloning here.
-    fn best_first_bet(state: &GameState, player: Box<dyn Player<V=Self::V, B=Self>>) -> Box<Self> {
+    fn best_first_bet(
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> Box<Self> {
         let bets = Self::first_bets(state, player.cloned());
         let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player.cloned());
         let best_bets = bets
@@ -101,7 +117,7 @@ impl Bet for PerudoBet {
 impl PerudoBet {
     /// Get the allowed first bets - everything but ones.
     /// Bets are ordered by their probability of occuring.
-    fn first_bets(state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> Vec<Box<Self>> {
+    fn first_bets(state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> Vec<Box<Self>> {
         Self::ordered_bets(state, player)
             .into_iter()
             .filter(|b| b.value != Die::One)
@@ -109,7 +125,10 @@ impl PerudoBet {
     }
 
     /// Gets all bets ordered by probability.
-    fn ordered_bets(state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> Vec<Box<Self>> {
+    fn ordered_bets(
+        state: &GameState,
+        player: Box<dyn Player<V = Die, B = Self>>,
+    ) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
@@ -133,13 +152,21 @@ impl PerudoBet {
     }
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    pub fn perudo_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
+    pub fn perudo_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Die, B = Self>>,
+    ) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
-    pub fn palafico_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
+    pub fn palafico_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Die, B = Self>>,
+    ) -> f64 {
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if guaranteed_quantity > self.quantity {
             return 0.0;
@@ -162,7 +189,7 @@ impl PerudoBet {
     /// quantity.
     /// We also take into account only the other dice and count those we have in the given hand as
     /// guaranteed.
-    pub fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V=Die, B=Self>>) -> f64 {
+    pub fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -353,7 +380,7 @@ speculate! {
                         Die::Two ,
                         Die::Three ,
                         Die::Four ,
-                        Die::Five 
+                        Die::Five
                     ],
                 },
             });

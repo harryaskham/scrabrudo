@@ -194,7 +194,9 @@ impl Player for PerudoPlayer {
         // TODO: Can almost make this fully generic, need to tie together e.g. PerudoPlayer,
         // PerudoBet, PerudoGame somehow.
         match current_outcome {
-            TurnOutcome::First => TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self.cloned())),
+            TurnOutcome::First => {
+                TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self.cloned()))
+            }
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
             _ => panic!(),
         }

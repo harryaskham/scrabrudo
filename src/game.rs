@@ -83,7 +83,10 @@ pub trait Game {
     }
 
     /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
+    fn refreshed_players_with_loss(
+        &self,
+        loser_index: usize,
+    ) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players()
             .iter()
             .enumerate()
