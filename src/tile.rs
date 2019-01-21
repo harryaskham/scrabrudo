@@ -112,6 +112,10 @@ impl Tile {
         (self.char() as u32 - 'a' as u32) as usize
     }
 
+    pub fn from_usize(u: usize) -> Tile {
+        Tile::from_char((u as u8 + 'a' as u8) as char)
+    }
+
     pub fn all() -> Vec<Tile> {
         vec![
             Tile::A,
@@ -188,6 +192,11 @@ speculate! {
         it "represents tiles as usize" {
             assert_eq!(0, Tile::A.as_usize());
             assert_eq!(25, Tile::Z.as_usize());
+        }
+
+        it "creates tiles from usize" {
+            assert_eq!(Tile::A, Tile::from_usize(0));
+            assert_eq!(Tile::Z, Tile::from_usize(25));
         }
     }
 }
