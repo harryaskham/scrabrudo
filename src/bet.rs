@@ -92,6 +92,21 @@ pub trait Bet: Ord + Clone + fmt::Display {
         bets.sort_by(|a, b| a.0.cmp(&b.0));
         bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
     }
+
+    /// Return one of the highest probability bets from those given.
+    fn best_bet_from(
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+        bets: Vec<Box<Self>>
+    ) -> Box<Self> {
+        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player.cloned());
+        let best_bets = bets
+            .into_iter()
+            .filter(|b| b.prob(state, ProbVariant::Bet, player.cloned()) == max_prob)
+            .collect::<Vec<Box<Self>>>();
+        let mut rng = thread_rng();
+        best_bets.choose(&mut rng).unwrap().clone()
+    }
 }
 
 /// The different types of Bet one can make in Perudo.
@@ -149,13 +164,7 @@ impl Bet for PerudoBet {
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self> {
         let bets = Self::first_bets(state, player.cloned());
-        let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player.cloned());
-        let best_bets = bets
-            .into_iter()
-            .filter(|b| b.prob(state, ProbVariant::Bet, player.cloned()) == max_prob)
-            .collect::<Vec<Box<Self>>>();
-        let mut rng = thread_rng();
-        best_bets.choose(&mut rng).unwrap().clone()
+        Self::best_bet_from(state, player, bets)
     }
 
     fn perudo_prob(
@@ -317,7 +326,10 @@ impl Bet for ScrabrudoBet {
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self> {
-        unimplemented!();
+        // TODO: If we make a distinction for the first bet here then we should incorporate it
+        // here.
+        let bets = Self::ordered_bets(state, player.cloned());
+        Self::best_bet_from(state, player, bets)
     }
 
     fn perudo_prob(

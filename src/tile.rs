@@ -34,7 +34,6 @@ pub enum Tile {
     X,
     Y,
     Z,
-    Blank,
 }
 
 impl Holdable for Tile {
@@ -72,7 +71,6 @@ impl Tile {
             'x' => Tile::X,
             'y' => Tile::Y,
             'z' => Tile::Z,
-            ' ' => Tile::Blank,
             _ => panic!(),
         }
     }
@@ -105,7 +103,6 @@ impl Tile {
             Tile::X => 'x',
             Tile::Y => 'y',
             Tile::Z => 'z',
-            Tile::Blank => ' ',
         }
     }
 
@@ -137,7 +134,6 @@ impl Tile {
             Tile::X,
             Tile::Y,
             Tile::Z,
-            Tile::Blank,
         ]
     }
 }
@@ -145,7 +141,7 @@ impl Tile {
 impl rand::distributions::Distribution<Tile> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Tile {
         // TODO: Incorporate proper tile probabilities here.
-        match rng.gen_range(0, 27) {
+        match rng.gen_range(0, 26) {
             0 => Tile::A,
             1 => Tile::B,
             2 => Tile::C,
@@ -172,7 +168,6 @@ impl rand::distributions::Distribution<Tile> for Standard {
             23 => Tile::X,
             24 => Tile::Y,
             25 => Tile::Z,
-            26 => Tile::Blank,
             _ => panic!(),
         }
     }
