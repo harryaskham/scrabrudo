@@ -15,6 +15,8 @@ use std::cmp::Ord;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Result};
 
 /// Trait implemented by any type of bet.
 pub trait Bet: Ord + Clone + fmt::Display {
@@ -289,8 +291,16 @@ pub struct ScrabrudoBet {
 impl Bet for ScrabrudoBet {
     type V = Tile;
 
+    // TODO: Probably the naive thing will be too slow here. Use some computer science skills to
+    // bring this down...
+    // TODO: Preload and memoize the wordlist
+    // TODO: Dictionary helper mod for the above
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        unimplemented!();
+        let f = match File::open("data/scrabble.txt") {
+            Ok(file) => file,
+            Err(e) => panic!("Couldn't open dictionary: {:?}", e)
+        };
+        BufReader::new(f).lines().map(|l| l.unwrap()).filter(|l| l.len() <= state.total_num_items).map(|l| Box::new(Self::from_word(l))).collect()
     }
 
     fn smallest() -> Box<Self> {
@@ -371,6 +381,17 @@ speculate! {
             };
             assert_eq!("cat", bet.as_word());
             assert_eq!(ScrabrudoBet::from_word("cat".into()), bet);
+        }
+
+        it "can load all bets for a certain number of tiles" {
+            let bets = ScrabrudoBet::all(&GameState{
+                total_num_items: 4, 
+                num_items_per_player: vec![4]
+            });
+            assert_eq!(4971, bets.len());
+            for bet in bets {
+                assert!(bet.tiles.len() <= 4);
+            }
         }
     }
 
