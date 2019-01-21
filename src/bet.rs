@@ -393,6 +393,19 @@ speculate! {
                 assert!(bet.tiles.len() <= 4);
             }
         }
+
+        /* Disabled due to slow execution.
+        it "can load all bets for a large number of tiles" {
+            let bets = ScrabrudoBet::all(&GameState{
+                total_num_items: 30, 
+                num_items_per_player: vec![30]
+            });
+            assert_eq!(172820, bets.len());
+            for bet in bets {
+                assert!(bet.tiles.len() <= 30);
+            }
+        }
+        */
     }
 
     describe "perudo bets" {
