@@ -39,7 +39,7 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome;
+    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
 
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
@@ -51,10 +51,10 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Given the game state, return this player's chosen outcome.
-    fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
+    fn play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B>;
 
     /// Control logic for having a human play the game.
-    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome;
+    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B>;
 }
 
 #[derive(Debug, Clone)]
@@ -153,7 +153,7 @@ impl Player for PerudoPlayer {
     /// TODO: We should be able to lift this, need a way to have common functionality between
     /// struct implementers.
     /// Composition thing that takes the cloned self?
-    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome {
+    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome<Self::B> {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
             (
@@ -174,7 +174,7 @@ impl Player for PerudoPlayer {
                         b.prob(state, ProbVariant::Bet, self.cloned()),
                     )
                 })
-                .collect::<Vec<(TurnOutcome, f64)>>(),
+                .collect::<Vec<(TurnOutcome<Self::B>, f64)>>(),
         );
 
         // HACK - get an arbitrary one of the best outcomes.
@@ -184,12 +184,12 @@ impl Player for PerudoPlayer {
             .into_iter()
             .filter(|a| a.1 == best_p)
             .map(|a| a.0)
-            .collect::<Vec<TurnOutcome>>();
+            .collect::<Vec<TurnOutcome<Self::B>>>();
         let mut rng = thread_rng();
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    fn play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
+    fn play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B> {
         if self.human {
             return self.human_play(state, current_outcome);
         }
@@ -202,7 +202,7 @@ impl Player for PerudoPlayer {
         }
     }
 
-    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome) -> TurnOutcome {
+    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B> {
         loop {
             info!(
                 "Dice left: {:?} ({})",

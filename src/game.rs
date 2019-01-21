@@ -11,9 +11,9 @@ use std::fmt;
 
 // TODO: PerudoTurnOutcome and make a more general version when making Game variant-agnostic.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub enum TurnOutcome {
+pub enum TurnOutcome<B: Bet> {
     First,
-    Bet(PerudoBet),
+    Bet(B),
     Perudo,
     Palafico,
     Win,
@@ -33,7 +33,7 @@ pub trait Game {
     type V: Holdable + Clone;
 
     /// The Bet type to use.
-    type B: Bet;
+    type B: Bet + Clone;
 
     /// The associated type of a Player
     type P: Player<B = Self::B, V = Self::V>;
@@ -42,13 +42,16 @@ pub trait Game {
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
 
     /// Creates a new instance with the given fields.
-    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome) -> Self;
+    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome<Self::B>) -> Self;
 
     /// Creates a new player.
     fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
 
     /// Gets a list of all the players.
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
+
+    /// Gets the outcome of the turn currently being represented.
+    fn current_outcome(&self) -> &TurnOutcome<Self::B>;
 
     /// Gets the logical number of total items e.g. including wildcards.
     fn num_logical_items(&self, val: Self::V) -> usize;
@@ -123,12 +126,21 @@ pub trait Game {
             })
             .collect()
     }
+
+    /// Gets the last bet issued.
+    fn last_bet(&self) -> Self::B {
+        match self.current_outcome() {
+            TurnOutcome::First => *Self::B::smallest(),
+            TurnOutcome::Bet(bet) => bet.clone(),
+            _ => panic!(),
+        }
+    }
 }
 
 pub struct PerudoGame {
     pub players: Vec<Box<dyn Player<B = PerudoBet, V = Die>>>,
     pub current_index: usize,
-    pub current_outcome: TurnOutcome,
+    pub current_outcome: TurnOutcome<PerudoBet>
 }
 
 impl fmt::Display for PerudoGame {
@@ -158,6 +170,10 @@ impl Game for PerudoGame {
         &self.players
     }
 
+    fn current_outcome(&self) -> &TurnOutcome<Self::B> {
+        &self.current_outcome
+    }
+
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut players = Vec::new();
         for id in 0..num_players {
@@ -169,7 +185,7 @@ impl Game for PerudoGame {
         Self::new_with(players, 0, TurnOutcome::First)
     }
 
-    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome) -> Self {
+    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome<Self::B>) -> Self {
         Self {
             players: players,
             current_index: current_index,
@@ -268,15 +284,6 @@ impl PerudoGame {
     // TODO: Candidate for moving into Bet
     pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
         self.num_logical_items(bet.value.clone()) == bet.quantity
-    }
-
-    // Gets the last bet issued.
-    pub fn last_bet(&self) -> PerudoBet {
-        match &self.current_outcome {
-            TurnOutcome::First => *PerudoBet::smallest(),
-            TurnOutcome::Bet(bet) => bet.clone(),
-            _ => panic!(),
-        }
     }
 
     /// Ends the turn in Palafico and returns the new game state.
