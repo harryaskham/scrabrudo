@@ -1,7 +1,9 @@
+/// Bet definitions and related logic.
+
 use crate::game::*;
 use crate::hand::*;
 use crate::die::*;
-/// Bet definitions and related logic.
+use crate::tile::*;
 use crate::player::*;
 use crate::testing;
 
@@ -46,7 +48,56 @@ pub trait Bet: Ord + Clone + fmt::Display {
         state: &GameState,
         variant: ProbVariant,
         player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
+        match variant {
+            ProbVariant::Bet => self.bet_prob(state, player),
+            ProbVariant::Perudo => self.perudo_prob(state, player),
+            ProbVariant::Palafico => self.palafico_prob(state, player),
+        }
+    }
+
+    /// Get the probability of the bet being correct.
+    /// This is akin to the mass of this bet, plus all those with the same value and higher
+    /// quantity.
+    fn bet_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64;
+
+    /// Gets the probability that this bet is incorrect as far as the given player is concerned.
+    fn perudo_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64;
+
+    /// Gets the probability that this bet is exactly correct as far as the given player is
+    /// concerned.
+    fn palafico_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64;
+
+    /// Gets all bets ordered by probability from the perspective of the given player.
+    fn ordered_bets(
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> Vec<Box<Self>> {
+        let mut bets = Self::all(state)
+            .into_iter()
+            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
+            .map(|b| {
+                (
+                    (100000.0 * b.prob(state, ProbVariant::Bet, player.cloned())) as u64,
+                    b,
+                )
+            })
+            .collect::<Vec<(u64, Box<Self>)>>();
+        bets.sort_by(|a, b| a.0.cmp(&b.0));
+        bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
+    }
 }
 
 /// The different types of Bet one can make in Perudo.
@@ -57,7 +108,6 @@ pub enum ProbVariant {
     Palafico,
 }
 
-// TODO: Rename PerudoBet and refactor
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct PerudoBet {
     pub value: Die,
@@ -113,60 +163,19 @@ impl Bet for PerudoBet {
         let mut rng = thread_rng();
         best_bets.choose(&mut rng).unwrap().clone()
     }
-}
 
-impl PerudoBet {
-    /// Get the allowed first bets - everything but ones.
-    /// Bets are ordered by their probability of occuring.
-    fn first_bets(state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> Vec<Box<Self>> {
-        Self::ordered_bets(state, player)
-            .into_iter()
-            .filter(|b| b.value != Die::One)
-            .collect::<Vec<Box<Self>>>()
-    }
-
-    /// Gets all bets ordered by probability.
-    fn ordered_bets(
-        state: &GameState,
-        player: Box<dyn Player<V = Die, B = Self>>,
-    ) -> Vec<Box<Self>> {
-        let mut bets = Self::all(state)
-            .into_iter()
-            // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
-            .map(|b| {
-                (
-                    (100000.0 * b.prob(state, ProbVariant::Bet, player.cloned())) as u64,
-                    b,
-                )
-            })
-            .collect::<Vec<(u64, Box<Self>)>>();
-        bets.sort_by(|a, b| a.0.cmp(&b.0));
-        bets.into_iter().map(|x| x.1).collect::<Vec<Box<Self>>>()
-    }
-
-    /// All the valid bets without aces, for first-turn purposes.
-    pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
-        PerudoBet::all(state)
-            .into_iter()
-            .filter(|b| b.value != Die::One)
-            .collect::<Vec<Box<PerudoBet>>>()
-    }
-
-    /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    pub fn perudo_prob(
+    fn perudo_prob(
         &self,
         state: &GameState,
-        player: Box<dyn Player<V = Die, B = Self>>,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         1.0 - self.bet_prob(state, player)
     }
 
-    /// Gets the probability that this bet is exactly correct as far as the given player is
-    /// concerned.
-    pub fn palafico_prob(
+    fn palafico_prob(
         &self,
         state: &GameState,
-        player: Box<dyn Player<V = Die, B = Self>>,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
         if guaranteed_quantity > self.quantity {
@@ -185,12 +194,7 @@ impl PerudoBet {
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
-    /// Get the probability of the bet being correct.
-    /// This is akin to the mass of this bet, plus all those with the same value and higher
-    /// quantity.
-    /// We also take into account only the other dice and count those we have in the given hand as
-    /// guaranteed.
-    pub fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> f64 {
+    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -212,6 +216,26 @@ impl PerudoBet {
             .map(|q| Binomial::new(num_other_dice, trial_p).mass(q))
             .sum::<f64>()
     }
+}
+
+impl PerudoBet {
+    /// Get the allowed first bets - everything but ones.
+    /// Bets are ordered by their probability of occuring.
+    fn first_bets(state: &GameState, player: Box<dyn Player<V = Die, B = Self>>) -> Vec<Box<Self>> {
+        Self::ordered_bets(state, player)
+            .into_iter()
+            .filter(|b| b.value != Die::One)
+            .collect::<Vec<Box<Self>>>()
+    }
+
+    /// All the valid bets without aces, for first-turn purposes.
+    pub fn all_without_ones(state: &GameState) -> Vec<Box<Self>> {
+        PerudoBet::all(state)
+            .into_iter()
+            .filter(|b| b.value != Die::One)
+            .collect::<Vec<Box<PerudoBet>>>()
+    }
+
 }
 
 impl fmt::Display for PerudoBet {
@@ -264,9 +288,98 @@ impl PartialOrd for PerudoBet {
     }
 }
 
+/// A single bet consisting of Scrabble tiles.
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ScrabrudoBet {
+    /// The list of tiles that make up the proposed word.
+    pub tiles: Vec<Tile>
+}
+
+impl Bet for ScrabrudoBet {
+    type V = Tile;
+
+    fn all(state: &GameState) -> Vec<Box<Self>> {
+        unimplemented!();
+    }
+
+    fn smallest() -> Box<Self> {
+        Box::new(Self {
+            tiles: vec![]
+        })
+    }
+
+    /// TODO: Better than random choice from equally likely bets.
+    /// TODO: Too much cloning here.
+    fn best_first_bet(
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> Box<Self> {
+        unimplemented!();
+    }
+
+    fn perudo_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
+        unimplemented!();
+    }
+
+    fn palafico_prob(
+        &self,
+        state: &GameState,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
+        unimplemented!();
+    }
+
+    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+        unimplemented!();
+    }
+}
+
+impl ScrabrudoBet {
+    fn from_word(word: String) -> Self {
+        let tiles = word.chars().map(|c| Tile::from_char(c)).collect::<Vec<Tile>>();
+        Self { tiles }
+    }
+
+    fn as_word(&self) -> String {
+        self.tiles.iter().map(|t| t.char()).collect()
+    }
+}
+
+impl fmt::Display for ScrabrudoBet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "'{}'", self.as_word())
+    }
+}
+
+impl Ord for ScrabrudoBet {
+    fn cmp(&self, other: &ScrabrudoBet) -> Ordering {
+        unimplemented!();
+    }
+}
+
+impl PartialOrd for ScrabrudoBet {
+    fn partial_cmp(&self, other: &ScrabrudoBet) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 speculate! {
     before {
         testing::set_up();
+    }
+
+    describe "scrabrudo bets" {
+        it "converts bet to word and back" {
+            let bet = ScrabrudoBet{
+                tiles: vec![Tile::C, Tile::A, Tile::T],
+            };
+            assert_eq!("cat", bet.as_word());
+            assert_eq!(ScrabrudoBet::from_word("cat".into()), bet);
+        }
     }
 
     describe "perudo bets" {

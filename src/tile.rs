@@ -19,6 +19,39 @@ impl Holdable for Tile {
 }
 
 impl Tile {
+    pub fn from_char(c: char) -> Self {
+        match c {
+             'a' => Tile::A,
+             'b' => Tile::B,
+             'c' => Tile::C,
+             'd' => Tile::D,
+             'e' => Tile::E,
+             'f' => Tile::F,
+             'g' => Tile::G,
+             'h' => Tile::H,
+             'i' => Tile::I,
+             'j' => Tile::J,
+             'k' => Tile::K,
+             'l' => Tile::L,
+             'm' => Tile::M,
+             'n' => Tile::N,
+             'o' => Tile::O,
+             'p' => Tile::P,
+             'q' => Tile::Q,
+             'r' => Tile::R,
+             's' => Tile::S,
+             't' => Tile::T,
+             'u' => Tile::U,
+             'v' => Tile::V,
+             'w' => Tile::W,
+             'x' => Tile::X,
+             'y' => Tile::Y,
+             'z' => Tile::Z,
+             ' ' => Tile::Blank,
+             _ => panic!(),
+        }
+    }
+
     pub fn char(&self) -> char {
         match &self {
             Tile::A => 'a',
