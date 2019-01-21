@@ -30,7 +30,7 @@ pub struct GameState {
 
 /// Trait implemented by all game types.
 /// Most rule-logic lives in the trait as it does not differ from game to game.
-pub trait Game: Sized {
+pub trait Game: Sized + fmt::Display {
     /// The associated value-type of a given hand item.
     type V: Holdable + Clone;
 
@@ -204,6 +204,7 @@ pub trait Game: Sized {
         let current_outcome = player.play(&self.state(), &self.current_outcome());
 
         // TODO: Include historic bets in the context given to the player.
+        debug!("{}", self);
         match current_outcome {
             TurnOutcome::Bet(bet) => {
                 info!("Player {} bets {}", player.id(), bet);
