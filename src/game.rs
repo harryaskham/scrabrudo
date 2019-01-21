@@ -1,8 +1,8 @@
 /// Game logic.
 use crate::bet::*;
+use crate::die::*;
 use crate::hand::*;
 use crate::player::*;
-use crate::die::*;
 use crate::testing;
 
 use speculate::speculate;

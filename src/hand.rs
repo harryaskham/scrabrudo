@@ -1,6 +1,6 @@
+use crate::die::*;
 /// Logic related to dealing hands.
 use crate::testing;
-use crate::die::*;
 use crate::tile::*;
 
 use speculate::speculate;

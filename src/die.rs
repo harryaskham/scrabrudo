@@ -1,5 +1,4 @@
 /// Definition of a single tile.
-
 use crate::hand::*;
 
 use rand::distributions::Standard;

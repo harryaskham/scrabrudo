@@ -1,5 +1,4 @@
 /// Definition of a single tile.
-
 use crate::hand::*;
 
 use rand::distributions::Standard;
@@ -9,7 +8,33 @@ use std::cmp::Ord;
 // TODO: Extended alphabets, wildcards
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum Tile {
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, Blank
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+    Blank,
 }
 
 impl Holdable for Tile {
@@ -21,34 +46,34 @@ impl Holdable for Tile {
 impl Tile {
     pub fn from_char(c: char) -> Self {
         match c {
-             'a' => Tile::A,
-             'b' => Tile::B,
-             'c' => Tile::C,
-             'd' => Tile::D,
-             'e' => Tile::E,
-             'f' => Tile::F,
-             'g' => Tile::G,
-             'h' => Tile::H,
-             'i' => Tile::I,
-             'j' => Tile::J,
-             'k' => Tile::K,
-             'l' => Tile::L,
-             'm' => Tile::M,
-             'n' => Tile::N,
-             'o' => Tile::O,
-             'p' => Tile::P,
-             'q' => Tile::Q,
-             'r' => Tile::R,
-             's' => Tile::S,
-             't' => Tile::T,
-             'u' => Tile::U,
-             'v' => Tile::V,
-             'w' => Tile::W,
-             'x' => Tile::X,
-             'y' => Tile::Y,
-             'z' => Tile::Z,
-             ' ' => Tile::Blank,
-             _ => panic!(),
+            'a' => Tile::A,
+            'b' => Tile::B,
+            'c' => Tile::C,
+            'd' => Tile::D,
+            'e' => Tile::E,
+            'f' => Tile::F,
+            'g' => Tile::G,
+            'h' => Tile::H,
+            'i' => Tile::I,
+            'j' => Tile::J,
+            'k' => Tile::K,
+            'l' => Tile::L,
+            'm' => Tile::M,
+            'n' => Tile::N,
+            'o' => Tile::O,
+            'p' => Tile::P,
+            'q' => Tile::Q,
+            'r' => Tile::R,
+            's' => Tile::S,
+            't' => Tile::T,
+            'u' => Tile::U,
+            'v' => Tile::V,
+            'w' => Tile::W,
+            'x' => Tile::X,
+            'y' => Tile::Y,
+            'z' => Tile::Z,
+            ' ' => Tile::Blank,
+            _ => panic!(),
         }
     }
 

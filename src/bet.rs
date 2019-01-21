@@ -1,11 +1,10 @@
+use crate::die::*;
 /// Bet definitions and related logic.
-
 use crate::game::*;
 use crate::hand::*;
-use crate::die::*;
-use crate::tile::*;
 use crate::player::*;
 use crate::testing;
+use crate::tile::*;
 
 use probability::prelude::*;
 use rand::seq::SliceRandom;
@@ -59,18 +58,11 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// Get the probability of the bet being correct.
     /// This is akin to the mass of this bet, plus all those with the same value and higher
     /// quantity.
-    fn bet_prob(
-        &self,
-        state: &GameState,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
-    ) -> f64;
+    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64;
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
-    fn perudo_prob(
-        &self,
-        state: &GameState,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
-    ) -> f64;
+    fn perudo_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>)
+        -> f64;
 
     /// Gets the probability that this bet is exactly correct as far as the given player is
     /// concerned.
@@ -235,7 +227,6 @@ impl PerudoBet {
             .filter(|b| b.value != Die::One)
             .collect::<Vec<Box<PerudoBet>>>()
     }
-
 }
 
 impl fmt::Display for PerudoBet {
@@ -292,7 +283,7 @@ impl PartialOrd for PerudoBet {
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct ScrabrudoBet {
     /// The list of tiles that make up the proposed word.
-    pub tiles: Vec<Tile>
+    pub tiles: Vec<Tile>,
 }
 
 impl Bet for ScrabrudoBet {
@@ -303,9 +294,7 @@ impl Bet for ScrabrudoBet {
     }
 
     fn smallest() -> Box<Self> {
-        Box::new(Self {
-            tiles: vec![]
-        })
+        Box::new(Self { tiles: vec![] })
     }
 
     /// TODO: Better than random choice from equally likely bets.
@@ -340,7 +329,10 @@ impl Bet for ScrabrudoBet {
 
 impl ScrabrudoBet {
     fn from_word(word: String) -> Self {
-        let tiles = word.chars().map(|c| Tile::from_char(c)).collect::<Vec<Tile>>();
+        let tiles = word
+            .chars()
+            .map(|c| Tile::from_char(c))
+            .collect::<Vec<Tile>>();
         Self { tiles }
     }
 

@@ -1,8 +1,8 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
+use crate::die::*;
 use crate::game::*;
 use crate::hand::*;
-use crate::die::*;
 use crate::testing;
 
 use rand::seq::SliceRandom;
