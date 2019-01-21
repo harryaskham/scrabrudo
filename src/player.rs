@@ -51,10 +51,18 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Given the game state, return this player's chosen outcome.
-    fn play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B>;
+    fn play(
+        &self,
+        state: &GameState,
+        current_outcome: &TurnOutcome<Self::B>,
+    ) -> TurnOutcome<Self::B>;
 
     /// Control logic for having a human play the game.
-    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B>;
+    fn human_play(
+        &self,
+        state: &GameState,
+        current_outcome: &TurnOutcome<Self::B>,
+    ) -> TurnOutcome<Self::B>;
 }
 
 #[derive(Debug, Clone)]
@@ -189,7 +197,11 @@ impl Player for PerudoPlayer {
         best_outcomes.choose(&mut rng).unwrap().clone()
     }
 
-    fn play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B> {
+    fn play(
+        &self,
+        state: &GameState,
+        current_outcome: &TurnOutcome<Self::B>,
+    ) -> TurnOutcome<Self::B> {
         if self.human {
             return self.human_play(state, current_outcome);
         }
@@ -202,7 +214,11 @@ impl Player for PerudoPlayer {
         }
     }
 
-    fn human_play(&self, state: &GameState, current_outcome: &TurnOutcome<Self::B>) -> TurnOutcome<Self::B> {
+    fn human_play(
+        &self,
+        state: &GameState,
+        current_outcome: &TurnOutcome<Self::B>,
+    ) -> TurnOutcome<Self::B> {
         loop {
             info!(
                 "Dice left: {:?} ({})",

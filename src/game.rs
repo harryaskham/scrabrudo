@@ -44,7 +44,11 @@ pub trait Game: Sized {
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
 
     /// Creates a new instance with the given fields.
-    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome<Self::B>) -> Self;
+    fn new_with(
+        players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
+        current_index: usize,
+        current_outcome: TurnOutcome<Self::B>,
+    ) -> Self;
 
     /// Creates a new player.
     fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
@@ -74,7 +78,7 @@ pub trait Game: Sized {
             num_items_per_player: self.num_items_per_player(),
         }
     }
-    
+
     fn num_items_with(&self, val: Self::V) -> usize {
         self.players()
             .iter()
@@ -121,7 +125,10 @@ pub trait Game: Sized {
     }
 
     /// Gets the players refreshed with one player winning.
-    fn refreshed_players_with_gain(&self, winner_index: usize) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
+    fn refreshed_players_with_gain(
+        &self,
+        winner_index: usize,
+    ) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players()
             .iter()
             .enumerate()
@@ -179,7 +186,11 @@ pub trait Game: Sized {
         // Refresh all players, winner maybe gains a item.
         let players = self.refreshed_players_with_gain(winner_index);
         let winner = &players[winner_index];
-        info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
+        info!(
+            "Player {} wins Palafico, now has {}",
+            winner.id(),
+            winner.num_items()
+        );
         Self::new_with(players, winner_index, TurnOutcome::First)
     }
 
@@ -199,7 +210,8 @@ pub trait Game: Sized {
                 Self::new_with(
                     self.cloned_players(),
                     (self.current_index() + 1) % self.players().len(),
-                    TurnOutcome::Bet(bet.clone()))
+                    TurnOutcome::Bet(bet.clone()),
+                )
             }
             TurnOutcome::Perudo => {
                 info!("Player {} calls Perudo", player.id());
@@ -228,7 +240,7 @@ pub trait Game: Sized {
 pub struct PerudoGame {
     pub players: Vec<Box<dyn Player<B = PerudoBet, V = Die>>>,
     pub current_index: usize,
-    pub current_outcome: TurnOutcome<PerudoBet>
+    pub current_outcome: TurnOutcome<PerudoBet>,
 }
 
 impl fmt::Display for PerudoGame {
@@ -269,19 +281,20 @@ impl Game for PerudoGame {
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut players = Vec::new();
         for id in 0..num_players {
-            players.push(Self::create_player(
-                id,
-                human_indices.contains(&id),
-            ));
+            players.push(Self::create_player(id, human_indices.contains(&id)));
         }
         Self::new_with(players, 0, TurnOutcome::First)
     }
 
-    fn new_with(players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>, current_index: usize, current_outcome: TurnOutcome<Self::B>) -> Self {
+    fn new_with(
+        players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
+        current_index: usize,
+        current_outcome: TurnOutcome<Self::B>,
+    ) -> Self {
         Self {
             players: players,
             current_index: current_index,
-            current_outcome: current_outcome
+            current_outcome: current_outcome,
         }
     }
 
@@ -320,7 +333,11 @@ impl Game for PerudoGame {
         let actual_amount = self.num_logical_items(bet.value.clone());
         info!(
             "Bet was {}, there were {} {:?}s",
-            if is_exactly_correct { "exactly correct" } else { "incorrect" },
+            if is_exactly_correct {
+                "exactly correct"
+            } else {
+                "incorrect"
+            },
             actual_amount,
             bet.value
         );
