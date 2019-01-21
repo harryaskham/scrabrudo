@@ -36,8 +36,11 @@ pub trait Game {
     /// TODO: Should really be Holdable... can't restrict this here.
     type V;
 
+    /// The Bet type to use.
+    type B: Bet;
+
     /// The associated type of a Player
-    type P: Player;
+    type P: Player<B=Self::B>;
 
     /// Creates a new instance of the game.
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
@@ -69,10 +72,39 @@ pub trait Game {
 
     /// Immutably runs a single turn of the game, returning a new Game with updated state.
     fn run_turn(&self) -> Box<Self>;
+
+    /// Gets a list of all the players.
+    fn players(&self) -> &Vec<Box<dyn Player<B=Self::B>>>;
+
+    /// Gets a cloned refreshed view on the players.
+    fn refreshed_players(&self) -> Vec<Box<dyn Player<B=Self::B>>> {
+        self.players().iter().map(|p| p.refresh()).collect()
+    }
+
+    /// Clones players without touching their hands.
+    fn cloned_players(&self) -> Vec<Box<dyn Player<B=Self::B>>> {
+        self.players().iter().map(|p| p.cloned()).collect()
+    }
+
+    /// Gets the players refreshed with one player losing.
+    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player<B=Self::B>>> {
+        self.players()
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if i == loser_index {
+                    p.without_one()
+                } else {
+                    p.refresh()
+                }
+            })
+            .collect()
+    }
+
 }
 
 pub struct PerudoGame {
-    pub players: Vec<Box<dyn Player>>,
+    pub players: Vec<Box<dyn Player<B=PerudoBet>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome,
 }
@@ -93,10 +125,15 @@ impl fmt::Display for PerudoGame {
 
 impl Game for PerudoGame {
     type V = DieVal;
+    type B = PerudoBet;
     type P = PerudoPlayer;
 
     fn create_player(id: usize, human: bool) -> PerudoPlayer {
         PerudoPlayer::new(id, human)
+    }
+
+    fn players(&self) -> &Vec<Box<dyn Player<B=Self::B>>> {
+        &self.players
     }
 
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
@@ -254,31 +291,6 @@ impl PerudoGame {
             current_index: winner_index,
             current_outcome: TurnOutcome::First,
         })
-    }
-
-    /// Gets a cloned refreshed view on the players.
-    fn refreshed_players(&self) -> Vec<Box<dyn Player>> {
-        self.players.iter().map(|p| p.refresh()).collect()
-    }
-
-    /// Clones players without touching their hands.
-    fn cloned_players(&self) -> Vec<Box<dyn Player>> {
-        self.players.iter().map(|p| p.cloned()).collect()
-    }
-
-    /// Gets the players refreshed with one player losing.
-    fn refreshed_players_with_loss(&self, loser_index: usize) -> Vec<Box<dyn Player>> {
-        self.players
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                if i == loser_index {
-                    p.without_one()
-                } else {
-                    p.refresh()
-                }
-            })
-            .collect()
     }
 
     /// Ends the turn and returns the new game state.

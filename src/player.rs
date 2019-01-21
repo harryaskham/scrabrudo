@@ -17,23 +17,26 @@ use std::io;
 /// Common behaviour for players of any ruleset.
 /// TODO: Remove Perudo references from the common core.
 pub trait Player: fmt::Debug + fmt::Display {
+    /// The type determining the bet to be used.
+    type B: Bet;
+
     /// Gets the player's ID.
     fn id(&self) -> usize;
 
     /// A copy of the player with an item missing.
-    fn without_one(&self) -> Box<Player>;
+    fn without_one(&self) -> Box<Player<B=Self::B>>;
 
     /// A copy of the player with an extra item.
-    fn with_one(&self) -> Box<Player>;
+    fn with_one(&self) -> Box<Player<B=Self::B>>;
 
     /// A fresh instance of player with a new hand.
-    fn refresh(&self) -> Box<Player>;
+    fn refresh(&self) -> Box<Player<B=Self::B>>;
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<Player>;
+    fn cloned(&self) -> Box<Player<B=Self::B>>;
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome;
+    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome;
 
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
@@ -83,11 +86,13 @@ impl fmt::Display for PerudoPlayer {
 }
 
 impl Player for PerudoPlayer {
+    type B = PerudoBet;
+
     fn id(&self) -> usize {
         self.id
     }
 
-    fn without_one(&self) -> Box<Player> {
+    fn without_one(&self) -> Box<Player<B=PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -95,7 +100,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn with_one(&self) -> Box<Player> {
+    fn with_one(&self) -> Box<Player<B=PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -103,7 +108,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn refresh(&self) -> Box<Player> {
+    fn refresh(&self) -> Box<Player<B=PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
@@ -111,7 +116,7 @@ impl Player for PerudoPlayer {
         })
     }
 
-    fn cloned(&self) -> Box<Player> {
+    fn cloned(&self) -> Box<Player<B=PerudoBet>> {
         Box::new(PerudoPlayer {
             id: self.id,
             human: self.human,
