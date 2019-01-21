@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 /// Trait implemented by any type of bet.
-pub trait Bet: Ord + Clone {
+pub trait Bet: Ord + Clone + fmt::Display {
     type V: Holdable;
 
     /// Return all possible bets given the current game state.

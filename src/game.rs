@@ -55,11 +55,17 @@ pub trait Game: Sized {
     /// Gets the outcome of the turn currently being represented.
     fn current_outcome(&self) -> &TurnOutcome<Self::B>;
 
+    /// Gets the index of the current player.
+    fn current_index(&self) -> usize;
+
     /// Gets the logical number of total items e.g. including wildcards.
     fn num_logical_items(&self, val: Self::V) -> usize;
 
-    /// Immutably runs a single turn of the game, returning a new Game with updated state.
-    fn run_turn(&self) -> Self;
+    /// Whether or not the given bet is correct at the current state.
+    fn is_correct(&self, bet: &Self::B) -> bool;
+
+    /// Whether or not the given bet is precisely (Palafico-satisfyingly) correct at the current state.
+    fn is_exactly_correct(&self, bet: &Self::B) -> bool;
 
     /// Gets a state representation of the game.
     fn state(&self) -> GameState {
@@ -176,6 +182,47 @@ pub trait Game: Sized {
         info!("Player {} wins Palafico, now has {}", winner.id(), winner.num_items());
         Self::new_with(players, winner_index, TurnOutcome::First)
     }
+
+    /// Runs a turn and either finishes or sets up for the next turn, returning a full copy of
+    /// the game in the new state.
+    fn run_turn(&self) -> Self {
+        let last_bet = self.last_bet();
+
+        // Get the current state based on this player's move.
+        let player = &self.players()[self.current_index()];
+        let current_outcome = player.play(&self.state(), &self.current_outcome());
+
+        // TODO: Include historic bets in the context given to the player.
+        match current_outcome {
+            TurnOutcome::Bet(bet) => {
+                info!("Player {} bets {}", player.id(), bet);
+                Self::new_with(
+                    self.cloned_players(),
+                    (self.current_index() + 1) % self.players().len(),
+                    TurnOutcome::Bet(bet.clone()))
+            }
+            TurnOutcome::Perudo => {
+                info!("Player {} calls Perudo", player.id());
+                let loser_index: usize;
+                if self.is_correct(&last_bet) {
+                    loser_index = self.current_index();
+                } else {
+                    loser_index =
+                        (self.current_index() + self.players().len() - 1) % self.players().len();
+                };
+                self.with_end_turn(loser_index)
+            }
+            TurnOutcome::Palafico => {
+                info!("Player {} calls Palafico", player.id());
+                if self.is_exactly_correct(&last_bet) {
+                    self.with_end_turn_palafico(self.current_index())
+                } else {
+                    self.with_end_turn(self.current_index())
+                }
+            }
+            _ => panic!(),
+        }
+    }
 }
 
 pub struct PerudoGame {
@@ -215,6 +262,10 @@ impl Game for PerudoGame {
         &self.current_outcome
     }
 
+    fn current_index(&self) -> usize {
+        self.current_index
+    }
+
     fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
         let mut players = Vec::new();
         for id in 0..num_players {
@@ -243,91 +294,39 @@ impl Game for PerudoGame {
         }
     }
 
-    // Runs a turn and either finishes or sets up for the next turn.
-    fn run_turn(&self) -> Self {
-        let last_bet = self.last_bet();
-
-        // Get the current state based on this player's move.
-        let player = &self.players[self.current_index];
-        let current_outcome = player.play(&self.state(), &self.current_outcome);
-
-        // TODO: Include historic bets in the context given to the player.
-        debug!("{}", self);
-        match current_outcome {
-            TurnOutcome::Bet(bet) => {
-                info!("Player {} bets {}", player.id(), bet);
-
-                PerudoGame {
-                    players: self.cloned_players(),
-                    current_index: (self.current_index + 1) % self.players.len(),
-                    current_outcome: TurnOutcome::Bet(bet.clone()),
-                }
-            }
-            TurnOutcome::Perudo => {
-                info!("Player {} calls Perudo", player.id());
-                let loser_index: usize;
-                let actual_amount = self.num_logical_items(last_bet.value.clone());
-                if self.is_correct(&last_bet) {
-                    info!(
-                        "Player {} is incorrect, there were {} {:?}s",
-                        player.id(),
-                        actual_amount,
-                        last_bet.value
-                    );
-                    loser_index = self.current_index;
-                } else {
-                    info!(
-                        "Player {} is correct, there were {} {:?}s",
-                        player.id(),
-                        actual_amount,
-                        last_bet.value
-                    );
-                    loser_index =
-                        (self.current_index + self.players.len() - 1) % self.players.len();
-                };
-                self.with_end_turn(loser_index)
-            }
-            TurnOutcome::Palafico => {
-                info!("Player {} calls Palafico", player.id());
-                let actual_amount = self.num_logical_items(last_bet.value.clone());
-                if self.is_exactly_correct(&last_bet) {
-                    info!(
-                        "Player {} is correct, there were {} {:?}s",
-                        player.id(),
-                        actual_amount,
-                        last_bet.value
-                    );
-                    return self.with_end_turn_palafico(self.current_index);
-                } else {
-                    info!(
-                        "Player {} is incorrect, there were {} {:?}s",
-                        player.id(),
-                        actual_amount,
-                        last_bet.value
-                    );
-                    self.with_end_turn(self.current_index)
-                }
-            }
-            _ => panic!(),
-        }
-    }
-}
-
-impl PerudoGame {
-    // TODO: Candidate for moving into Bet
-    pub fn is_correct(&self, bet: &PerudoBet) -> bool {
+    fn is_correct(&self, bet: &PerudoBet) -> bool {
         let max_correct_bet = PerudoBet {
             value: bet.value.clone(),
             quantity: self.num_logical_items(bet.value.clone()),
         };
-        bet <= &max_correct_bet
+        let is_correct = bet <= &max_correct_bet;
+
+        // Log out the outcome.
+        let actual_amount = self.num_logical_items(bet.value.clone());
+        info!(
+            "Bet was {}, there were {} {:?}s",
+            if is_correct { "correct" } else { "incorrect" },
+            actual_amount,
+            bet.value
+        );
+
+        is_correct
     }
 
-    // TODO: Candidate for moving into Bet
-    pub fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
-        self.num_logical_items(bet.value.clone()) == bet.quantity
-    }
+    fn is_exactly_correct(&self, bet: &PerudoBet) -> bool {
+        let is_exactly_correct = self.num_logical_items(bet.value.clone()) == bet.quantity;
 
+        // Log out the outcome.
+        let actual_amount = self.num_logical_items(bet.value.clone());
+        info!(
+            "Bet was {}, there were {} {:?}s",
+            if is_exactly_correct { "exactly correct" } else { "incorrect" },
+            actual_amount,
+            bet.value
+        );
+
+        is_exactly_correct
+    }
 }
 
 speculate! {
