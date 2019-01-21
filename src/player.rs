@@ -150,6 +150,9 @@ impl Player for PerudoPlayer {
         }
     }
 
+    /// TODO: We should be able to lift this, need a way to have common functionality between
+    /// struct implementers.
+    /// Composition thing that takes the cloned self?
     fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
