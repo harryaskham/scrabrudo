@@ -298,9 +298,15 @@ impl Bet for ScrabrudoBet {
     fn all(state: &GameState) -> Vec<Box<Self>> {
         let f = match File::open("data/scrabble.txt") {
             Ok(file) => file,
-            Err(e) => panic!("Couldn't open dictionary: {:?}", e)
+            Err(e) => panic!("Couldn't open dictionary: {:?}", e),
         };
-        BufReader::new(f).lines().map(|l| l.unwrap()).filter(|l| l.len() <= state.total_num_items).map(|l| Box::new(Self::from_word(l))).collect()
+        // Get only those words that fit on the table.
+        BufReader::new(f)
+            .lines()
+            .map(|l| l.unwrap())
+            .filter(|l| l.len() <= state.total_num_items)
+            .map(|l| Box::new(Self::from_word(l)))
+            .collect()
     }
 
     fn smallest() -> Box<Self> {
@@ -385,7 +391,7 @@ speculate! {
 
         it "can load all bets for a certain number of tiles" {
             let bets = ScrabrudoBet::all(&GameState{
-                total_num_items: 4, 
+                total_num_items: 4,
                 num_items_per_player: vec![4]
             });
             assert_eq!(4971, bets.len());
@@ -397,7 +403,7 @@ speculate! {
         /* Disabled due to slow execution.
         it "can load all bets for a large number of tiles" {
             let bets = ScrabrudoBet::all(&GameState{
-                total_num_items: 30, 
+                total_num_items: 30,
                 num_items_per_player: vec![30]
             });
             assert_eq!(172820, bets.len());
