@@ -1,10 +1,10 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
 use crate::die::*;
-use crate::tile::*;
 use crate::game::*;
 use crate::hand::*;
 use crate::testing;
+use crate::tile::*;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
