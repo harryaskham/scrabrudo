@@ -30,24 +30,40 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     info!("Perudo 0.1");
-    if args.len() < 2 {
-        info!("Please supply number of players");
+    if args.len() < 3 {
+        info!("Please supply mode and number of players");
         return;
     }
 
-    let num_players = args[1].parse::<usize>().unwrap();
+    let mode = args[1].parse::<String>().unwrap();
+    let num_players = args[2].parse::<usize>().unwrap();
     let mut human_indices = HashSet::new();
 
-    if args.len() >= 3 {
-        human_indices.insert(args[2].parse::<usize>().unwrap());
+    if args.len() >= 4 {
+        human_indices.insert(args[3].parse::<usize>().unwrap());
     }
 
-    let mut game = PerudoGame::new(num_players, human_indices);
-    loop {
-        game = game.run_turn();
-        match game.current_outcome {
-            TurnOutcome::Win => return,
-            _ => continue,
+    match mode.as_str() {
+        "perudo" => {
+            let mut game = PerudoGame::new(num_players, human_indices);
+            loop {
+                game = game.run_turn();
+                match game.current_outcome {
+                    TurnOutcome::Win => return,
+                    _ => continue,
+                }
+            }
+        },
+        "scrabrudo" => {
+            let mut game = ScrabrudoGame::new(num_players, human_indices);
+            loop {
+                game = game.run_turn();
+                match game.current_outcome {
+                    TurnOutcome::Win => return,
+                    _ => continue,
+                }
+            }
         }
+        x => info!("Invalid mode: {}", mode)
     }
 }
