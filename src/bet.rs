@@ -322,6 +322,16 @@ impl Bet for ScrabrudoBet {
         //
         // A huge precomputed table from e.g. [w = ATTACK,ATTAC,ATTAK... -> P(w)] is plausible if
         // the computation takes very long, but not ideal.
+        //
+        // Generating combos is also quite cumbersome.
+        //
+        // We could also use Monte Carlo simulation here, as follows:
+        // - Draw 16 tiles
+        // - Are all tiles there?
+        // - Count yes's, no's, repeat many times, divide
+        //
+        // However, doing Monte Carlo for every possible word in the list will take forever.
+        // Could look at Monte Carlo precomputation...
 
         // First get the set of tiles we need to find.
         let mut tiles_to_find = self.tiles.clone();
@@ -339,12 +349,9 @@ impl Bet for ScrabrudoBet {
             return 1.0;
         }
 
+        /* DISABLING THIS as it's destined to fail without an efficient Multinomial CDF computer.
         // Create a map from tile to count.
-        let mut counts_to_find = HashMap::new();
-        for tile in tiles_to_find {
-            let count = counts_to_find.entry(tile).or_insert(0 as usize);
-            *count += 1;
-        }
+        let mut counts_to_find = count_map(&tiles_to_find);
 
         // We need to search for these tiles in the total unseen remaining tiles.
         let num_tiles = state.total_num_items - player.num_items();
@@ -366,8 +373,10 @@ impl Bet for ScrabrudoBet {
         let combos = get_combos(26, num_tiles);
 
         // Now remove any violating combos.
+        */
 
-        0.0
+        let num_tiles = state.total_num_items - player.num_items();
+        monte_carlo(num_tiles as u32, &tiles_to_find, 1000, false)
     }
 
     fn palafico_prob(
@@ -383,8 +392,76 @@ impl Bet for ScrabrudoBet {
         //
         // But this still maps on to a large number of probabilities to compute given the other
         // possible values this can take.
+
+        /* NOTE this also still doesn't work - we need to check in our own hand to see if we have
+         * breaking duplicates.
+        // First get the set of tiles we need to find.
+        let mut tiles_to_find = self.tiles.clone();
+        for tile in player.items() {
+            match tiles_to_find.binary_search(tile) {
+                Ok(i) => {
+                    tiles_to_find.remove(i);
+                }
+                Err(_) => (),
+            };
+        }
+
+        // If we have all the tiles, it's a guaranteed hit.
+        if tiles_to_find.is_empty() {
+            return 1.0;
+        }
+
+        let num_tiles = state.total_num_items - player.num_items();
+        monte_carlo(num_tiles as u32, &tiles_to_find, 1000, true)
+        */
         0.0
     }
+}
+
+/// Gets a map of tiles to their counts.
+fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
+    let mut count_map = HashMap::new();
+    for tile in tiles {
+        let count = count_map.entry(tile).or_insert(0 as usize);
+        *count += 1;
+    }
+    count_map
+}
+
+/// Runs a crappy MC simulation to get rough probability of success.
+/// TODO: If keeping this approach, can multi-thread it easily.
+fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
+    let mut success = 0;
+    let mut failure = 0;
+    let tile_counts = count_map(tiles);
+    for _ in 0..num_trials {
+        let all_tiles = Hand::<Tile>::new(n).items;
+        let all_tile_counts = count_map(&all_tiles);
+        let mut okay = true;
+        for (tile, count) in &tile_counts {
+            let actual_count = match all_tile_counts.get(tile) {
+                Some(c) => *c,
+                None => 0,
+            };
+            if exact {
+                if actual_count != *count {
+                    okay = false;
+                    break;
+                }
+            } else {
+                if actual_count < *count {
+                    okay = false;
+                    break;
+                }
+            }
+        }
+        if okay {
+            success += 1;
+        } else {
+            failure += 1
+        }
+    }
+    success as f64 / num_trials as f64
 }
 
 /// Generates all combinations of values of length n that sum to sum.
@@ -646,5 +723,13 @@ speculate! {
             assert_eq!(0, combos.len());
         }
         */
+    }
+
+    describe "monte carlo" {
+        it "approximates the chance of a bet" {
+            let p = monte_carlo(20, &vec![Tile::C, Tile::A, Tile::T], 10000, false);
+            assert!(0.12 < p);
+            assert!(p < 0.18);
+        }
     }
 }
