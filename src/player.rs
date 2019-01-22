@@ -24,7 +24,12 @@ pub trait Player: fmt::Debug + fmt::Display {
     type B: Bet<V = Self::V>;
 
     /// Returns a copy of this Player with any set fields overridden.
-    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = Self::B, V = Self::V>>;
+    fn copy_with(
+        &self,
+        id: Option<usize>,
+        human: Option<bool>,
+        hand: Option<Hand<Self::V>>,
+    ) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// Gets the player's ID.
     fn id(&self) -> usize;
@@ -43,17 +48,29 @@ pub trait Player: fmt::Debug + fmt::Display {
 
     /// A copy of the player with an item missing.
     fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>> {
-        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32 - 1)))
+        self.copy_with(
+            None,
+            None,
+            Some(Hand::<Self::V>::new(self.num_items() as u32 - 1)),
+        )
     }
 
     /// A copy of the player with an extra item.
     fn with_one(&self) -> Box<Player<B = Self::B, V = Self::V>> {
-        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32 + 1)))
+        self.copy_with(
+            None,
+            None,
+            Some(Hand::<Self::V>::new(self.num_items() as u32 + 1)),
+        )
     }
 
     /// A fresh instance of player with a new hand.
     fn refresh(&self) -> Box<Player<B = Self::B, V = Self::V>> {
-        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32)))
+        self.copy_with(
+            None,
+            None,
+            Some(Hand::<Self::V>::new(self.num_items() as u32)),
+        )
     }
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
@@ -80,9 +97,7 @@ pub trait Player: fmt::Debug + fmt::Display {
             return self.human_play(state, current_outcome);
         }
         match current_outcome {
-            TurnOutcome::First => {
-                TurnOutcome::Bet(*Self::B::best_first_bet(state, self.cloned()))
-            }
+            TurnOutcome::First => TurnOutcome::Bet(*Self::B::best_first_bet(state, self.cloned())),
             TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
             _ => panic!(),
         }
@@ -129,12 +144,17 @@ impl fmt::Display for PerudoPlayer {
 impl Player for PerudoPlayer {
     type V = Die;
     type B = PerudoBet;
-    
-    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = PerudoBet, V = Die>> {
+
+    fn copy_with(
+        &self,
+        id: Option<usize>,
+        human: Option<bool>,
+        hand: Option<Hand<Self::V>>,
+    ) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: match id {
                 Some(id) => id,
-                None => self.id()
+                None => self.id(),
             },
             human: match human {
                 Some(human) => human,
@@ -143,7 +163,7 @@ impl Player for PerudoPlayer {
             hand: match hand {
                 Some(hand) => hand,
                 None => self.hand().clone(),
-            }
+            },
         })
     }
 

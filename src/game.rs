@@ -275,7 +275,7 @@ impl Game for PerudoGame {
             id: id,
             human: human,
             // TODO: Move the starting number of dice to the game maybe.
-            hand: Hand::<Die>::new(5)
+            hand: Hand::<Die>::new(5),
         })
     }
 
