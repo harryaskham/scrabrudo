@@ -432,9 +432,10 @@ impl Game for ScrabrudoGame {
 
         // Log out the outcome.
         info!(
-            "Bet was {}, {} is in {:?}",
+            "Bet was {}, {} is{}in {:?}",
             if is_correct { "correct" } else { "incorrect" },
             bet.as_word(),
+            if is_correct { " " } else { " not "},
             all_tiles.into_iter().map(|t| t.char()).collect::<Vec<char>>()
         );
 
