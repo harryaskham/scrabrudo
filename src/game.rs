@@ -36,7 +36,7 @@ pub trait Game: Sized + fmt::Display {
     type V: Holdable + Clone;
 
     /// The Bet type to use.
-    type B: Bet + Clone;
+    type B: Bet<V = Self::V> + Clone;
 
     /// The associated type of a Player
     type P: Player<B = Self::B, V = Self::V>;

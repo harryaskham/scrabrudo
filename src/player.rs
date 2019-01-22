@@ -21,33 +21,16 @@ pub trait Player: fmt::Debug + fmt::Display {
     type V: Holdable;
 
     /// The type determining the bet to be used.
-    type B: Bet;
+    type B: Bet<V = Self::V>;
+
+    /// Returns a copy of this Player with any set fields overridden.
+    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// Gets the player's ID.
     fn id(&self) -> usize;
 
     /// Is the player human?
     fn human(&self) -> bool;
-
-    /// Returns a copy of this Player with any set fields overridden.
-    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = Self::B, V = Self::V>>;
-
-    /// A copy of the player with an item missing.
-    fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
-
-    /// A copy of the player with an extra item.
-    fn with_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
-
-    /// A fresh instance of player with a new hand.
-    fn refresh(&self) -> Box<Player<B = Self::B, V = Self::V>>;
-
-    /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>> {
-        self.copy_with(None, None, None)
-    }
-
-    /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
 
     /// The player's hand.
     fn hand(&self) -> &Hand<Self::V>;
@@ -57,6 +40,29 @@ pub trait Player: fmt::Debug + fmt::Display {
 
     /// The actual  items in the hand.
     fn items(&self) -> &Vec<Self::V>;
+
+    /// A copy of the player with an item missing.
+    fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>> {
+        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32 - 1)))
+    }
+
+    /// A copy of the player with an extra item.
+    fn with_one(&self) -> Box<Player<B = Self::B, V = Self::V>> {
+        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32 + 1)))
+    }
+
+    /// A fresh instance of player with a new hand.
+    fn refresh(&self) -> Box<Player<B = Self::B, V = Self::V>> {
+        self.copy_with(None, None, Some(Hand::<Self::V>::new(self.num_items() as u32)))
+    }
+
+    /// TODO: Figure out how to remove this hack and still allow trait objectification.
+    fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>> {
+        self.copy_with(None, None, None)
+    }
+
+    /// Gets the best turn outcome above a certain bet.
+    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
 
     /// The total number of dice with the given explicit value (no wildcards).
     fn num_items_with(&self, val: Self::V) -> usize;
@@ -69,7 +75,18 @@ pub trait Player: fmt::Debug + fmt::Display {
         &self,
         state: &GameState,
         current_outcome: &TurnOutcome<Self::B>,
-    ) -> TurnOutcome<Self::B>;
+    ) -> TurnOutcome<Self::B> {
+        if self.human() {
+            return self.human_play(state, current_outcome);
+        }
+        match current_outcome {
+            TurnOutcome::First => {
+                TurnOutcome::Bet(*Self::B::best_first_bet(state, self.cloned()))
+            }
+            TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
+            _ => panic!(),
+        }
+    }
 
     /// Control logic for having a human play the game.
     fn human_play(
@@ -112,15 +129,7 @@ impl fmt::Display for PerudoPlayer {
 impl Player for PerudoPlayer {
     type V = Die;
     type B = PerudoBet;
-
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    fn human(&self) -> bool {
-        self.human
-    }
-
+    
     fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
             id: match id {
@@ -138,22 +147,12 @@ impl Player for PerudoPlayer {
         })
     }
 
-    /// TODO: These methods can all move to the base now, predicated on our V type.
-    /// The blocker is we cannot have a new() func for a Trait Object.
-    fn without_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32 - 1)))
+    fn id(&self) -> usize {
+        self.id
     }
 
-    fn with_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32 + 1)))
-    }
-
-    fn refresh(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32)))
-    }
-
-    fn cloned(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        self.copy_with(None, None, None)
+    fn human(&self) -> bool {
+        self.human
     }
 
     fn hand(&self) -> &Hand<Self::V> {
@@ -210,24 +209,6 @@ impl Player for PerudoPlayer {
                 .collect::<Vec<(TurnOutcome<Self::B>, f64)>>(),
         );
         get_best_outcome::<PerudoBet>(&outcomes)
-    }
-
-    /// TODO: This should also be able to move up once we have cloned() in the trait.
-    fn play(
-        &self,
-        state: &GameState,
-        current_outcome: &TurnOutcome<Self::B>,
-    ) -> TurnOutcome<Self::B> {
-        if self.human() {
-            return self.human_play(state, current_outcome);
-        }
-        match current_outcome {
-            TurnOutcome::First => {
-                TurnOutcome::Bet(*PerudoBet::best_first_bet(state, self.cloned()))
-            }
-            TurnOutcome::Bet(current_bet) => self.best_outcome_above(state, current_bet),
-            _ => panic!(),
-        }
     }
 
     fn human_play(
