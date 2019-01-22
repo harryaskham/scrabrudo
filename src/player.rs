@@ -26,6 +26,9 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Gets the player's ID.
     fn id(&self) -> usize;
 
+    /// Is the player human?
+    fn human(&self) -> bool;
+
     /// A copy of the player with an item missing.
     fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
@@ -104,6 +107,10 @@ impl Player for PerudoPlayer {
 
     fn id(&self) -> usize {
         self.id
+    }
+
+    fn human(&self) -> bool {
+        self.human
     }
 
     /// TODO: These methods can all move to the base now, predicated on our V type.
@@ -199,7 +206,7 @@ impl Player for PerudoPlayer {
         state: &GameState,
         current_outcome: &TurnOutcome<Self::B>,
     ) -> TurnOutcome<Self::B> {
-        if self.human {
+        if self.human() {
             return self.human_play(state, current_outcome);
         }
         match current_outcome {
