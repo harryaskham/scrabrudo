@@ -46,6 +46,12 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// The actual  items in the hand.
     fn items(&self) -> &Vec<Self::V>;
 
+    /// The total number of dice with the given explicit value (no wildcards).
+    fn num_items_with(&self, val: Self::V) -> usize;
+
+    /// Gets the actual number of dice around the table, allowing for wildcards.
+    fn num_logical_items(&self, val: Self::V) -> usize;
+
     /// A copy of the player with an item missing.
     fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>> {
         self.copy_with(
@@ -79,13 +85,39 @@ pub trait Player: fmt::Debug + fmt::Display {
     }
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
-
-    /// The total number of dice with the given explicit value (no wildcards).
-    fn num_items_with(&self, val: Self::V) -> usize;
-
-    /// Gets the actual number of dice around the table, allowing for wildcards.
-    fn num_logical_items(&self, val: Self::V) -> usize;
+    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B> {
+        // Create pairs of all possible outcomes sorted by probability.
+        let mut outcomes = vec![
+            (
+                TurnOutcome::Perudo,
+                bet.prob(state, ProbVariant::Perudo, self.cloned()),
+            ),
+            (
+                TurnOutcome::Palafico,
+                bet.prob(state, ProbVariant::Palafico, self.cloned()),
+            ),
+        ];
+        outcomes.extend(
+            bet.all_above(state)
+                .into_iter()
+                .map(|b| {
+                    (
+                        TurnOutcome::Bet(*b.clone()),
+                        b.prob(state, ProbVariant::Bet, self.cloned()),
+                    )
+                })
+                .collect::<Vec<(TurnOutcome<Self::B>, f64)>>(),
+        );
+        outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
+        let best_p = outcomes[outcomes.len() - 1].1;
+        let best_outcomes = outcomes
+            .into_iter()
+            .filter(|a| a.1 == best_p)
+            .map(|a| a.0)
+            .collect::<Vec<TurnOutcome<Self::B>>>();
+        let mut rng = thread_rng();
+        best_outcomes.choose(&mut rng).unwrap().clone()
+    }
 
     /// Given the game state, return this player's chosen outcome.
     fn play(
@@ -202,35 +234,6 @@ impl Player for PerudoPlayer {
         }
     }
 
-    /// TODO: We should be able to lift this, need a way to have common functionality between
-    /// struct implementers.
-    /// Composition thing that takes the cloned self?
-    fn best_outcome_above(&self, state: &GameState, bet: &PerudoBet) -> TurnOutcome<Self::B> {
-        // Create pairs of all possible outcomes sorted by probability.
-        let mut outcomes = vec![
-            (
-                TurnOutcome::Perudo,
-                bet.prob(state, ProbVariant::Perudo, self.cloned()),
-            ),
-            (
-                TurnOutcome::Palafico,
-                bet.prob(state, ProbVariant::Palafico, self.cloned()),
-            ),
-        ];
-        outcomes.extend(
-            bet.all_above(state)
-                .into_iter()
-                .map(|b| {
-                    (
-                        TurnOutcome::Bet(*b.clone()),
-                        b.prob(state, ProbVariant::Bet, self.cloned()),
-                    )
-                })
-                .collect::<Vec<(TurnOutcome<Self::B>, f64)>>(),
-        );
-        get_best_outcome::<PerudoBet>(&outcomes)
-    }
-
     fn human_play(
         &self,
         state: &GameState,
@@ -304,20 +307,6 @@ impl Player for PerudoPlayer {
             };
         }
     }
-}
-
-/// Gets one of the arbitrarily best outcomes from a list of (outcome,p) pairs.
-fn get_best_outcome<B: Bet>(outcomes: &Vec<(TurnOutcome<B>, f64)>) -> TurnOutcome<B> {
-    let mut outcomes = outcomes.clone();
-    outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
-    let best_p = outcomes[outcomes.len() - 1].1;
-    let best_outcomes = outcomes
-        .into_iter()
-        .filter(|a| a.1 == best_p)
-        .map(|a| a.0)
-        .collect::<Vec<TurnOutcome<B>>>();
-    let mut rng = thread_rng();
-    best_outcomes.choose(&mut rng).unwrap().clone()
 }
 
 speculate! {
