@@ -1,6 +1,7 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
 use crate::die::*;
+use crate::tile::*;
 use crate::game::*;
 use crate::hand::*;
 use crate::testing;
@@ -146,8 +147,8 @@ pub trait Player: fmt::Debug + fmt::Display {
 #[derive(Debug, Clone)]
 pub struct PerudoPlayer {
     pub id: usize,
-    pub hand: Hand<Die>,
     pub human: bool,
+    pub hand: Hand<Die>,
 }
 
 impl PartialEq for PerudoPlayer {
@@ -309,6 +310,143 @@ impl Player for PerudoPlayer {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ScrabrudoPlayer {
+    pub id: usize,
+    pub human: bool,
+    pub hand: Hand<Tile>,
+}
+
+impl PartialEq for ScrabrudoPlayer {
+    fn eq(&self, other: &ScrabrudoPlayer) -> bool {
+        // TODO: Better equality for ScrabrudoPlayers.
+        self.id == other.id
+    }
+}
+
+impl Eq for ScrabrudoPlayer {}
+
+impl fmt::Display for ScrabrudoPlayer {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}: {:?}",
+            self.id,
+            (&self.hand.items)
+                .into_iter()
+                .map(|t| t.char())
+                .collect::<Vec<char>>()
+        )
+    }
+}
+
+impl Player for ScrabrudoPlayer {
+    type V = Tile;
+    type B = ScrabrudoBet;
+
+    fn copy_with(
+        &self,
+        id: Option<usize>,
+        human: Option<bool>,
+        hand: Option<Hand<Self::V>>,
+    ) -> Box<Player<B = ScrabrudoBet, V = Tile>> {
+        Box::new(ScrabrudoPlayer {
+            id: match id {
+                Some(id) => id,
+                None => self.id(),
+            },
+            human: match human {
+                Some(human) => human,
+                None => self.human(),
+            },
+            hand: match hand {
+                Some(hand) => hand,
+                None => self.hand().clone(),
+            },
+        })
+    }
+
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    fn human(&self) -> bool {
+        self.human
+    }
+
+    fn hand(&self) -> &Hand<Self::V> {
+        &self.hand
+    }
+
+    fn num_items(&self) -> usize {
+        self.hand.items.len()
+    }
+
+    fn items(&self) -> &Vec<Self::V> {
+        &self.hand.items
+    }
+
+    fn num_items_with(&self, val: Tile) -> usize {
+        (&self.hand.items)
+            .into_iter()
+            .filter(|&d| d == &val)
+            .count()
+    }
+
+    fn num_logical_items(&self, val: Tile) -> usize {
+        // TODO: Update here if we end up having blank tiles.
+        self.num_items_with(val)
+    }
+
+    fn human_play(
+        &self,
+        state: &GameState,
+        current_outcome: &TurnOutcome<Self::B>,
+    ) -> TurnOutcome<Self::B> {
+        loop {
+            info!(
+                "Tiles left: {:?} ({})",
+                state.num_items_per_player, state.total_num_items
+            );
+            info!("Hand for Player {}", self);
+            match current_outcome {
+                TurnOutcome::First => info!("Enter bet (e.g. cat):"),
+                TurnOutcome::Bet(_) => info!("Enter bet (e.g. cat, *p=perudo, *pal=palafico):"),
+                _ => panic!(),
+            };
+
+            let mut line = String::new();
+            io::stdin()
+                .read_line(&mut line)
+                .expect("Failed to read input");
+            let line = line.trim();
+
+            if line == "*p" {
+                return TurnOutcome::Perudo;
+            }
+            if line == "*pal" {
+                return TurnOutcome::Palafico;
+            }
+
+            // Parse input, repeat on error.
+            // Either return a valid bet or take input again.
+            let bet = ScrabrudoBet::from_word(line.into());
+
+            return match current_outcome {
+                TurnOutcome::First => TurnOutcome::Bet(bet),
+                TurnOutcome::Bet(current_bet) => {
+                    if bet > *current_bet {
+                        return TurnOutcome::Bet(bet);
+                    } else {
+                        continue;
+                    }
+                }
+                _ => panic!(),
+            };
+        }
+    }
+}
+
 speculate! {
     before {
         testing::set_up();
@@ -364,6 +502,36 @@ speculate! {
             };
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Palafico);
+        }
+    }
+
+    describe "scrabrudo player" {
+        it "generates the most likely bet" {
+            let player = &ScrabrudoPlayer {
+                id: 0,
+                human: false,
+                hand: Hand::<Tile> {
+                    items: vec![
+                        Tile::C,
+                        Tile::H,
+                        Tile::A,
+                        Tile::T
+                    ],
+                },
+            };
+            let state = &GameState {
+                total_num_items: 5,
+                num_items_per_player: vec![4, 1],
+            };
+
+            // We can guarantee 'chat' and so it should play as the only word with the highest P.
+            let opponent_bet = &ScrabrudoBet::from_word("cat".into());
+            let best_outcome_above = player.best_outcome_above(state, opponent_bet);
+            assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word("chat".into())));
+
+            // TODO: This test takes forever b/c it is Monte-Carlo'ing every single word.
+            // We should not do this for guaranteed bets, but then will also need our lookup table
+            // algorithm to make the AI work properly.
         }
     }
 }

@@ -262,7 +262,7 @@ impl PartialOrd for PerudoBet {
 }
 
 /// A single bet consisting of Scrabble tiles.
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Hash)]
 pub struct ScrabrudoBet {
     /// The list of tiles that make up the proposed word.
     pub tiles: Vec<Tile>,
@@ -377,7 +377,7 @@ impl Bet for ScrabrudoBet {
         */
 
         let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 1000, false)
+        monte_carlo(num_tiles as u32, &tiles_to_find, 100, false)
     }
 
     fn palafico_prob(
@@ -413,7 +413,7 @@ impl Bet for ScrabrudoBet {
         }
 
         let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 1000, true)
+        monte_carlo(num_tiles as u32, &tiles_to_find, 100, true)
         */
         0.0
     }
@@ -485,7 +485,7 @@ fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
 }
 
 impl ScrabrudoBet {
-    fn from_word(word: String) -> Self {
+    pub fn from_word(word: String) -> Self {
         let tiles = word
             .chars()
             .map(|c| Tile::from_char(c))
@@ -493,7 +493,7 @@ impl ScrabrudoBet {
         Self { tiles }
     }
 
-    fn as_word(&self) -> String {
+    pub fn as_word(&self) -> String {
         self.tiles.iter().map(|t| t.char()).collect()
     }
 }
@@ -517,6 +517,19 @@ impl PartialOrd for ScrabrudoBet {
         Some(self.cmp(other))
     }
 }
+
+impl PartialEq for ScrabrudoBet {
+    // Define equality by containing equal tiles.
+    fn eq(&self, other: &ScrabrudoBet) -> bool {
+        let mut self_tiles = self.tiles.clone();
+        let mut other_tiles = other.tiles.clone();
+        self_tiles.sort_by(|a, b| a.char().cmp(&b.char()));
+        other_tiles.sort_by(|a, b| a.char().cmp(&b.char()));
+        self_tiles == other_tiles
+    }
+}
+
+impl Eq for ScrabrudoBet {}
 
 speculate! {
     before {
@@ -585,6 +598,12 @@ speculate! {
             for bet in bets {
                 assert_eq!(4, bet.tiles.len());
             }
+        }
+
+        it "treats anagram bets equally" {
+            assert_eq!(ScrabrudoBet::from_word("cat".into()), ScrabrudoBet::from_word("act".into()));
+            assert_eq!(ScrabrudoBet::from_word("desserts".into()), ScrabrudoBet::from_word("stressed".into()));
+            assert_ne!(ScrabrudoBet::from_word("dessert".into()), ScrabrudoBet::from_word("stressed".into()));
         }
     }
 
