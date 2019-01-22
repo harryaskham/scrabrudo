@@ -16,6 +16,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 use std::iter;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 
@@ -336,16 +337,30 @@ impl Bet for ScrabrudoBet {
             return 1.0
         }
 
-        // Otherwise we need to search for them in the remaining tiles.
+        // Create a map from tile to count.
+        let mut counts_to_find = HashMap::new();
+        for tile in tiles_to_find {
+            let count = counts_to_find.entry(tile).or_insert(0 as usize);
+            *count += 1;
+        }
+
+        // We need to search for these tiles in the total unseen remaining tiles.
         let num_tiles = state.total_num_items - player.num_items();
 
+        // Define the per-class probability for each tile.
         // The class probabilities are all equal here.
         // TODO: If we introduce unequal letter probabilities then this needs updating too.
         let p = iter::repeat(1.0 / 26.0).take(26);
 
-        // We now generate 26-tuples of successful counts
+        // We now generate the acceptable lower per-class counts for each tile.
         // TODO: Probably there will always be more unsuccessful counts, invert?
-         
+        (0..26).into_iter().map(|i| counts_to_find.get(&Tile::from_usize(i as usize)).unwrap()).collect::<Vec<&usize>>();
+
+        // Get all possible combinations of counts.
+        // e.g. All 26-tuples that sum to the remaining
+        let combos = get_combos(26, num_tiles);
+
+        // Now remove any violating combos.
 
         0.0
     }
@@ -358,9 +373,32 @@ impl Bet for ScrabrudoBet {
         // TODO: This will stop the computer from ever considering Palafico but we should revisit
         // when decided upon a meaning for the rule.
         // If we decide it's no-duplicates-allowed then we have
+        //
         // P(C=1 A=1 T=2 | n=16, p=[1/26..])
+        //
+        // But this still maps on to a large number of probabilities to compute given the other
+        // possible values this can take.
         0.0
     }
+}
+
+/// Generates all combinations of values of length n that sum to sum.
+fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
+    if n == 1 {
+        return vec![vec![sum]];
+    }
+
+    // Recursively generate these tree-like from the current count.
+    let mut all_combos = Vec::new();
+    for i in 0..=sum {
+        let combos = get_combos(n - 1, sum - i);
+        for mut combo in combos {
+            combo.push(i);
+            all_combos.push(combo);
+        }
+    }
+
+    all_combos
 }
 
 impl ScrabrudoBet {
@@ -589,5 +627,19 @@ speculate! {
 
             // TODO: More tests for the prob-calcs.
         }
+    }
+
+    describe "combo generation" {
+        it "generates many possible combos" {
+            let combos = get_combos(3, 2);
+            assert_eq!(6, combos.len());
+        }
+
+        /* Disabled due to long runtime :( remove when a better solution is found.
+        it "generates all the combos for a plausible early-game word setup" {
+            let combos = get_combos(26, 20);
+            assert_eq!(0, combos.len());
+        }
+        */
     }
 }
