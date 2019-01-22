@@ -572,6 +572,19 @@ speculate! {
                 assert!(bets[i + 1] > bets[i]);
             }
         }
+
+        it "generates all above" {
+            let original = ScrabrudoBet::from_word("cat".into());
+            let bets = original.all_above(&GameState{
+                total_num_items: 4,
+                num_items_per_player: vec![2, 2],
+            });
+            // This should give us all 4-letter words for now.
+            assert_eq!(3903, bets.len());
+            for bet in bets {
+                assert_eq!(4, bet.tiles.len());
+            }
+        }
     }
 
     describe "perudo bets" {
