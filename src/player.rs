@@ -44,6 +44,9 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Gets the best turn outcome above a certain bet.
     fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
 
+    /// The player's hand.
+    fn hand(&self) -> &Hand<Self::V>;
+
     /// The total number of items in the hand.
     fn num_items(&self) -> usize;
 
@@ -114,39 +117,41 @@ impl Player for PerudoPlayer {
     }
 
     /// TODO: These methods can all move to the base now, predicated on our V type.
-    /// We don't need to define what dealing means for every new type.
-    /// However, not sure how best to do this (could e.g. have new() and human() on the trait but
-    /// feels like shared initializers should be doable.
+    /// The blocker is we cannot have a new() func for a Trait Object.
     fn without_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
-            id: self.id,
-            human: self.human,
-            hand: Hand::<Die>::new(self.hand.items.len() as u32 - 1),
+            id: self.id(),
+            human: self.human(),
+            hand: Hand::<Die>::new(self.num_items() as u32 - 1),
         })
     }
 
     fn with_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
-            id: self.id,
-            human: self.human,
-            hand: Hand::<Die>::new(self.hand.items.len() as u32 + 1),
+            id: self.id(),
+            human: self.human(),
+            hand: Hand::<Die>::new(self.num_items() as u32 + 1),
         })
     }
 
     fn refresh(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
-            id: self.id,
-            human: self.human,
-            hand: Hand::<Die>::new(self.hand.items.len() as u32),
+            id: self.id(),
+            human: self.human(),
+            hand: Hand::<Die>::new(self.num_items() as u32),
         })
     }
 
     fn cloned(&self) -> Box<Player<B = PerudoBet, V = Die>> {
         Box::new(PerudoPlayer {
-            id: self.id,
-            human: self.human,
-            hand: self.hand.clone(),
+            id: self.id(),
+            human: self.human(),
+            hand: self.hand().clone(),
         })
+    }
+
+    fn hand(&self) -> &Hand<Self::V> {
+        &self.hand
     }
 
     fn num_items(&self) -> usize {
