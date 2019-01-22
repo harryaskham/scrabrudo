@@ -42,7 +42,13 @@ pub trait Game: Sized + fmt::Display {
     type P: Player<B = Self::B, V = Self::V>;
 
     /// Creates a new instance of the game.
-    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self;
+    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
+        let mut players = Vec::new();
+        for id in 0..num_players {
+            players.push(Self::create_player(id, human_indices.contains(&id)));
+        }
+        Self::new_with(players, 0, TurnOutcome::First)
+    }
 
     /// Creates a new instance with the given fields.
     fn new_with(
@@ -63,7 +69,7 @@ pub trait Game: Sized + fmt::Display {
     /// Gets the index of the current player.
     fn current_index(&self) -> usize;
 
-    /// Gets the logical number of total items e.g. including wildcards.
+    /// Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_items(&self, val: Self::V) -> usize;
 
     /// Whether or not the given bet is correct at the current state.
@@ -280,14 +286,6 @@ impl Game for PerudoGame {
         self.current_index
     }
 
-    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
-        let mut players = Vec::new();
-        for id in 0..num_players {
-            players.push(Self::create_player(id, human_indices.contains(&id)));
-        }
-        Self::new_with(players, 0, TurnOutcome::First)
-    }
-
     fn new_with(
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
@@ -300,7 +298,6 @@ impl Game for PerudoGame {
         }
     }
 
-    // Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_items(&self, val: Die) -> usize {
         if val == Die::One {
             self.num_items_with(Die::One)
