@@ -1,6 +1,7 @@
 /// Game logic.
 use crate::bet::*;
 use crate::die::*;
+use crate::tile::*;
 use crate::hand::*;
 use crate::player::*;
 use crate::testing;
@@ -274,8 +275,7 @@ impl Game for PerudoGame {
         Box::new(PerudoPlayer {
             id: id,
             human: human,
-            // TODO: Move the starting number of dice to the game maybe.
-            hand: Hand::<Die>::new(5),
+            hand: Hand::<Die>::new(5)
         })
     }
 
@@ -350,6 +350,127 @@ impl Game for PerudoGame {
     }
 }
 
+pub struct ScrabrudoGame {
+    pub players: Vec<Box<dyn Player<B = ScrabrudoBet, V = Tile>>>,
+    pub current_index: usize,
+    pub current_outcome: TurnOutcome<ScrabrudoBet>,
+}
+
+impl fmt::Display for ScrabrudoGame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Hands: {:?}",
+            (&self.players)
+                .into_iter()
+                .map(|p| format!("{}", p))
+                .collect::<Vec<String>>()
+                .join(" | ")
+        )
+    }
+}
+
+impl Game for ScrabrudoGame {
+    type V = Tile;
+    type B = ScrabrudoBet;
+    type P = ScrabrudoPlayer;
+
+    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+        Box::new(ScrabrudoPlayer {
+            id: id,
+            human: human,
+            hand: Hand::<Tile>::new(5)
+        })
+    }
+
+    fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
+        &self.players
+    }
+
+    fn current_outcome(&self) -> &TurnOutcome<Self::B> {
+        &self.current_outcome
+    }
+
+    fn current_index(&self) -> usize {
+        self.current_index
+    }
+
+    fn new_with(
+        players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
+        current_index: usize,
+        current_outcome: TurnOutcome<Self::B>,
+    ) -> Self {
+        Self {
+            players: players,
+            current_index: current_index,
+            current_outcome: current_outcome,
+        }
+    }
+
+    fn num_logical_items(&self, val: Tile) -> usize {
+        // TODO: Update if we introduce blanks / wildcards.
+        self.num_items_with(val)
+    }
+
+    fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
+        // A bet is correct if it's in the dictionary and it can be made from the tiles around the
+        // table.
+        let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
+        let tile_counts = count_map(&bet.tiles);
+        let all_tile_counts = count_map(&all_tiles);
+        let mut is_correct = true;
+        for (tile, count) in &tile_counts {
+            let actual_count = match all_tile_counts.get(tile) {
+                Some(c) => *c,
+                None => 0,
+            };
+            if actual_count < *count {
+                is_correct = false;
+                break;
+            }
+        }
+
+        // Log out the outcome.
+        info!(
+            "Bet was {}, {} is in {:?}",
+            if is_correct { "correct" } else { "incorrect" },
+            bet.as_word(),
+            all_tiles.into_iter().map(|t| t.char()).collect::<Vec<char>>()
+        );
+
+        is_correct
+    }
+
+    // TODO: Remove duplication with a helper here.
+    fn is_exactly_correct(&self, bet: &ScrabrudoBet) -> bool {
+        let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
+        let tile_counts = count_map(&bet.tiles);
+        let all_tile_counts = count_map(&all_tiles);
+        let mut is_correct = true;
+        for (tile, count) in &tile_counts {
+            let actual_count = match all_tile_counts.get(tile) {
+                Some(c) => *c,
+                None => 0,
+            };
+            if actual_count != *count {
+                is_correct = false;
+                break;
+            }
+        }
+
+        // Log out the outcome.
+        info!(
+            "Bet was {}, {} is{}exactly in {:?}",
+            if is_correct { "correct" } else { "incorrect" },
+            bet.as_word(),
+            if is_correct { " " } else { " not "},
+            all_tiles.into_iter().map(|t| t.char()).collect::<Vec<char>>()
+        );
+
+        is_correct
+    }
+}
+
 speculate! {
     before {
         testing::set_up();
@@ -358,6 +479,19 @@ speculate! {
     describe "a perudo game" {
         it "runs to completion" {
             let mut game = PerudoGame::new(6, HashSet::new());
+            loop {
+                game = game.run_turn();
+                match game.current_outcome {
+                    TurnOutcome::Win => return,
+                    _ => continue,
+                }
+            }
+        }
+    }
+
+    describe "a scrabrudo game" {
+        it "runs to completion" {
+            let mut game = ScrabrudoGame::new(6, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {

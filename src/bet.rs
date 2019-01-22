@@ -377,7 +377,7 @@ impl Bet for ScrabrudoBet {
         */
 
         let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 100, false)
+        monte_carlo(num_tiles as u32, &tiles_to_find, 10, false)
     }
 
     fn palafico_prob(
@@ -420,7 +420,7 @@ impl Bet for ScrabrudoBet {
 }
 
 /// Gets a map of tiles to their counts.
-fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
+pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
     let mut count_map = HashMap::new();
     for tile in tiles {
         let count = count_map.entry(tile).or_insert(0 as usize);
