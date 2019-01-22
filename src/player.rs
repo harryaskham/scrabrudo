@@ -191,17 +191,7 @@ impl Player for PerudoPlayer {
                 })
                 .collect::<Vec<(TurnOutcome<Self::B>, f64)>>(),
         );
-
-        // HACK - get an arbitrary one of the best outcomes.
-        outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
-        let best_p = outcomes[outcomes.len() - 1].1;
-        let best_outcomes = outcomes
-            .into_iter()
-            .filter(|a| a.1 == best_p)
-            .map(|a| a.0)
-            .collect::<Vec<TurnOutcome<Self::B>>>();
-        let mut rng = thread_rng();
-        best_outcomes.choose(&mut rng).unwrap().clone()
+        get_best_outcome::<PerudoBet>(&outcomes)
     }
 
     fn play(
@@ -304,6 +294,20 @@ impl PerudoPlayer {
             hand: Hand::<Die>::new(5),
         }
     }
+}
+
+/// Gets one of the arbitrarily best outcomes from a list of (outcome,p) pairs.
+fn get_best_outcome<B: Bet>(outcomes: &Vec<(TurnOutcome<B>, f64)>) -> TurnOutcome<B> {
+    let mut outcomes = outcomes.clone();
+    outcomes.sort_by(|a, b| ((a.1 * 1000000.0) as u64).cmp(&((b.1 * 1000000.0) as u64)));
+    let best_p = outcomes[outcomes.len() - 1].1;
+    let best_outcomes = outcomes
+        .into_iter()
+        .filter(|a| a.1 == best_p)
+        .map(|a| a.0)
+        .collect::<Vec<TurnOutcome<B>>>();
+    let mut rng = thread_rng();
+    best_outcomes.choose(&mut rng).unwrap().clone()
 }
 
 speculate! {

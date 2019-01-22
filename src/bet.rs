@@ -275,6 +275,7 @@ impl Bet for ScrabrudoBet {
     // bring this down...
     // TODO: Preload and memoize the wordlist
     // TODO: Dictionary helper mod for the above
+    // TODO: Randomly sample from the dictionary first?
     fn all(state: &GameState) -> Vec<Box<Self>> {
         let f = match File::open("data/scrabble.txt") {
             Ok(file) => file,
