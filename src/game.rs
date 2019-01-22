@@ -271,7 +271,12 @@ impl Game for PerudoGame {
     type P = PerudoPlayer;
 
     fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
-        Box::new(PerudoPlayer::new(id, human))
+        Box::new(PerudoPlayer {
+            id: id,
+            human: human,
+            // TODO: Move the starting number of dice to the game maybe.
+            hand: Hand::<Die>::new(5)
+        })
     }
 
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {

@@ -29,6 +29,9 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Is the player human?
     fn human(&self) -> bool;
 
+    /// Returns a copy of this Player with any set fields overridden.
+    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = Self::B, V = Self::V>>;
+
     /// A copy of the player with an item missing.
     fn without_one(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
@@ -39,7 +42,9 @@ pub trait Player: fmt::Debug + fmt::Display {
     fn refresh(&self) -> Box<Player<B = Self::B, V = Self::V>>;
 
     /// TODO: Figure out how to remove this hack and still allow trait objectification.
-    fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>>;
+    fn cloned(&self) -> Box<Player<B = Self::B, V = Self::V>> {
+        self.copy_with(None, None, None)
+    }
 
     /// Gets the best turn outcome above a certain bet.
     fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B>;
@@ -116,38 +121,39 @@ impl Player for PerudoPlayer {
         self.human
     }
 
+    fn copy_with(&self, id: Option<usize>, human: Option<bool>, hand: Option<Hand<Self::V>>) -> Box<Player<B = PerudoBet, V = Die>> {
+        Box::new(PerudoPlayer {
+            id: match id {
+                Some(id) => id,
+                None => self.id()
+            },
+            human: match human {
+                Some(human) => human,
+                None => self.human(),
+            },
+            hand: match hand {
+                Some(hand) => hand,
+                None => self.hand().clone(),
+            }
+        })
+    }
+
     /// TODO: These methods can all move to the base now, predicated on our V type.
     /// The blocker is we cannot have a new() func for a Trait Object.
     fn without_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        Box::new(PerudoPlayer {
-            id: self.id(),
-            human: self.human(),
-            hand: Hand::<Die>::new(self.num_items() as u32 - 1),
-        })
+        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32 - 1)))
     }
 
     fn with_one(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        Box::new(PerudoPlayer {
-            id: self.id(),
-            human: self.human(),
-            hand: Hand::<Die>::new(self.num_items() as u32 + 1),
-        })
+        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32 + 1)))
     }
 
     fn refresh(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        Box::new(PerudoPlayer {
-            id: self.id(),
-            human: self.human(),
-            hand: Hand::<Die>::new(self.num_items() as u32),
-        })
+        self.copy_with(None, None, Some(Hand::<Die>::new(self.num_items() as u32)))
     }
 
     fn cloned(&self) -> Box<Player<B = PerudoBet, V = Die>> {
-        Box::new(PerudoPlayer {
-            id: self.id(),
-            human: self.human(),
-            hand: self.hand().clone(),
-        })
+        self.copy_with(None, None, None)
     }
 
     fn hand(&self) -> &Hand<Self::V> {
@@ -206,6 +212,7 @@ impl Player for PerudoPlayer {
         get_best_outcome::<PerudoBet>(&outcomes)
     }
 
+    /// TODO: This should also be able to move up once we have cloned() in the trait.
     fn play(
         &self,
         state: &GameState,
@@ -294,16 +301,6 @@ impl Player for PerudoPlayer {
                 }
                 _ => panic!(),
             };
-        }
-    }
-}
-
-impl PerudoPlayer {
-    pub fn new(id: usize, human: bool) -> PerudoPlayer {
-        PerudoPlayer {
-            id: id,
-            human: human,
-            hand: Hand::<Die>::new(5),
         }
     }
 }
