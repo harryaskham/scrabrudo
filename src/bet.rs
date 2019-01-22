@@ -13,12 +13,12 @@ use rand::Rng;
 use speculate::speculate;
 use std::cmp::Ord;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
-use std::iter;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
+use std::iter;
 
 /// Trait implemented by any type of bet.
 pub trait Bet: Ord + Clone + fmt::Display {
@@ -106,7 +106,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     fn best_bet_from(
         state: &GameState,
         player: Box<dyn Player<V = Self::V, B = Self>>,
-        bets: Vec<Box<Self>>
+        bets: Vec<Box<Self>>,
     ) -> Box<Self> {
         let max_prob = bets[bets.len() - 1].prob(state, ProbVariant::Bet, player.cloned());
         let best_bets = bets
@@ -327,14 +327,16 @@ impl Bet for ScrabrudoBet {
         let mut tiles_to_find = self.tiles.clone();
         for tile in player.items() {
             match tiles_to_find.binary_search(tile) {
-                Ok(i) => { tiles_to_find.remove(i); }
-                Err(_) => ()
+                Ok(i) => {
+                    tiles_to_find.remove(i);
+                }
+                Err(_) => (),
             };
         }
 
         // If we have all the tiles, it's a guaranteed hit.
         if tiles_to_find.is_empty() {
-            return 1.0
+            return 1.0;
         }
 
         // Create a map from tile to count.
@@ -354,7 +356,10 @@ impl Bet for ScrabrudoBet {
 
         // We now generate the acceptable lower per-class counts for each tile.
         // TODO: Probably there will always be more unsuccessful counts, invert?
-        (0..26).into_iter().map(|i| counts_to_find.get(&Tile::from_usize(i as usize)).unwrap()).collect::<Vec<&usize>>();
+        let lower_bounds = (0..26)
+            .into_iter()
+            .map(|i| counts_to_find.get(&Tile::from_usize(i as usize)).unwrap())
+            .collect::<Vec<&usize>>();
 
         // Get all possible combinations of counts.
         // e.g. All 26-tuples that sum to the remaining

@@ -4,8 +4,8 @@ use crate::testing;
 
 use rand::distributions::Standard;
 use rand::Rng;
-use std::cmp::Ord;
 use speculate::speculate;
+use std::cmp::Ord;
 
 // TODO: Extended alphabets, wildcards
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
