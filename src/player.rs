@@ -1,6 +1,7 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
 use crate::die::*;
+use crate::dict::*;
 use crate::game::*;
 use crate::hand::*;
 use crate::testing;
@@ -298,6 +299,7 @@ impl Player for PerudoPlayer {
             return match current_outcome {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
+                    // TODO: Smell. We're duplicating the is_valid logic in game here.
                     if bet > *current_bet {
                         return TurnOutcome::Bet(bet);
                     } else {
@@ -432,7 +434,8 @@ impl Player for ScrabrudoPlayer {
             return match current_outcome {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
-                    if bet > *current_bet {
+                    // TODO: Smell. We're duplicating the is_valid logic in game here.
+                    if ScrabbleDict::has_word(bet.as_word()) && bet > *current_bet {
                         return TurnOutcome::Bet(bet);
                     } else {
                         continue;

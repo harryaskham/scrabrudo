@@ -74,6 +74,9 @@ pub trait Game: Sized + fmt::Display {
     /// Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_items(&self, val: Self::V) -> usize;
 
+    /// Whether or not the given bet is even a valid bet.
+    fn is_valid(&self, bet: &Self::B) -> bool;
+
     /// Whether or not the given bet is correct at the current state.
     fn is_correct(&self, bet: &Self::B) -> bool;
 
@@ -312,6 +315,10 @@ impl Game for PerudoGame {
         }
     }
 
+    fn is_valid(&self, bet: &Self::B) -> bool {
+        bet > &self.last_bet()
+    }
+
     fn is_correct(&self, bet: &PerudoBet) -> bool {
         let max_correct_bet = PerudoBet {
             value: bet.value.clone(),
@@ -413,13 +420,19 @@ impl Game for ScrabrudoGame {
         self.num_items_with(val)
     }
 
-    fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
-        // A bet is correct if it's in the dictionary and it can be made from the tiles around the
-        // table.
-        
+    fn is_valid(&self, bet: &Self::B) -> bool {
         if !ScrabbleDict::has_word(bet.as_word()) {
             info!("'{}' is not in the dictionary", bet.as_word());
             return false
+        }
+        bet > &self.last_bet()
+    }
+
+    fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
+        // A bet is correct if it's in the dictionary and it can be made from the tiles around the
+        // table.
+        if !self.is_valid(bet) {
+            return false;
         }
 
         let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
