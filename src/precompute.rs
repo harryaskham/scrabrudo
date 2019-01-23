@@ -45,6 +45,8 @@ fn sort_word(word: &String) -> String {
 /// Each word will be sorted to avoid further duplicates:
 /// e.g. AEHT, AET, EHT, AH, HT, EH, AT, AE, ET, H, A, T, E
 ///
+/// This is equivalent to the powerset of the characters of the word minus the empty word, sorted.
+///
 /// TODO: This is excruciatingly slow for longer words
 fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
     if word.len() == 1 {
