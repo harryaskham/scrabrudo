@@ -46,7 +46,7 @@ fn main() {
 
     match mode.as_str() {
         "perudo" => {
-            let mut game = PerudoGame::new(num_players, human_indices);
+            let mut game = PerudoGame::new(num_players, 5, human_indices);
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
@@ -56,7 +56,7 @@ fn main() {
             }
         },
         "scrabrudo" => {
-            let mut game = ScrabrudoGame::new(num_players, human_indices);
+            let mut game = ScrabrudoGame::new(num_players, 5, human_indices);
             loop {
                 game = game.run_turn();
                 match game.current_outcome {

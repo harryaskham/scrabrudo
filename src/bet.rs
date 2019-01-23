@@ -400,7 +400,7 @@ impl Bet for ScrabrudoBet {
         }
 
         let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 100, true)
+        monte_carlo(num_tiles as u32, &tiles_to_find, 10, true)
         */
         0.0
     }

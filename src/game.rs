@@ -43,10 +43,10 @@ pub trait Game: Sized + fmt::Display {
     type P: Player<B = Self::B, V = Self::V>;
 
     /// Creates a new instance of the game.
-    fn new(num_players: usize, human_indices: HashSet<usize>) -> Self {
+    fn new(num_players: usize, items_per_player: usize, human_indices: HashSet<usize>) -> Self {
         let mut players = Vec::new();
         for id in 0..num_players {
-            players.push(Self::create_player(id, human_indices.contains(&id)));
+            players.push(Self::create_player(id, items_per_player, human_indices.contains(&id)));
         }
         Self::new_with(players, 0, TurnOutcome::First)
     }
@@ -59,7 +59,7 @@ pub trait Game: Sized + fmt::Display {
     ) -> Self;
 
     /// Creates a new player.
-    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
+    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
 
     /// Gets a list of all the players.
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
@@ -271,11 +271,11 @@ impl Game for PerudoGame {
     type B = PerudoBet;
     type P = PerudoPlayer;
 
-    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
         Box::new(PerudoPlayer {
             id: id,
             human: human,
-            hand: Hand::<Die>::new(5)
+            hand: Hand::<Die>::new(items_per_player as u32)
         })
     }
 
@@ -375,11 +375,11 @@ impl Game for ScrabrudoGame {
     type B = ScrabrudoBet;
     type P = ScrabrudoPlayer;
 
-    fn create_player(id: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
         Box::new(ScrabrudoPlayer {
             id: id,
             human: human,
-            hand: Hand::<Tile>::new(5)
+            hand: Hand::<Tile>::new(items_per_player as u32)
         })
     }
 
@@ -480,7 +480,7 @@ speculate! {
 
     describe "a perudo game" {
         it "runs to completion" {
-            let mut game = PerudoGame::new(6, HashSet::new());
+            let mut game = PerudoGame::new(6, 5, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
@@ -493,7 +493,7 @@ speculate! {
 
     describe "a scrabrudo game" {
         it "runs to completion" {
-            let mut game = ScrabrudoGame::new(2, HashSet::new());
+            let mut game = ScrabrudoGame::new(2, 2, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
