@@ -421,11 +421,7 @@ impl Game for ScrabrudoGame {
     }
 
     fn is_valid(&self, bet: &Self::B) -> bool {
-        if !ScrabbleDict::has_word(bet.as_word()) {
-            info!("'{}' is not in the dictionary", bet.as_word());
-            return false
-        }
-        bet > &self.last_bet()
+        bet.is_valid(&self.last_bet())
     }
 
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {

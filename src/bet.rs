@@ -406,6 +406,17 @@ impl Bet for ScrabrudoBet {
     }
 }
 
+impl ScrabrudoBet {
+    // TODO: Move to trait and get this on PerudoBet too.
+    pub fn is_valid(&self, last_bet: &Self) -> bool {
+        if !ScrabbleDict::has_word(self.as_word()) {
+            info!("'{}' is not in the dictionary", self.as_word());
+            return false
+        }
+        self > last_bet
+    }
+}
+
 /// Gets a map of tiles to their counts.
 pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
     let mut count_map = HashMap::new();

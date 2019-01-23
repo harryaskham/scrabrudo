@@ -435,7 +435,7 @@ impl Player for ScrabrudoPlayer {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
                     // TODO: Smell. We're duplicating the is_valid logic in game here.
-                    if ScrabbleDict::has_word(bet.as_word()) && bet > *current_bet {
+                    if bet.is_valid(current_bet) {
                         return TurnOutcome::Bet(bet);
                     } else {
                         continue;
