@@ -17,6 +17,7 @@ pub mod game;
 pub mod hand;
 pub mod player;
 pub mod testing;
+pub mod dict;
 pub mod tile;
 
 use crate::game::*;

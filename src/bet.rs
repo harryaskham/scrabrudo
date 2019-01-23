@@ -4,6 +4,7 @@ use crate::game::*;
 use crate::hand::*;
 use crate::player::*;
 use crate::testing;
+use crate::dict::*;
 use crate::tile::*;
 
 use probability::prelude::*;
@@ -16,8 +17,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Result};
 use std::iter;
 
 /// Trait implemented by any type of bet.
@@ -271,22 +270,10 @@ pub struct ScrabrudoBet {
 impl Bet for ScrabrudoBet {
     type V = Tile;
 
-    // TODO: Probably the naive thing will be too slow here. Use some computer science skills to
-    // bring this down...
-    // TODO: Preload and memoize the wordlist
-    // TODO: Dictionary helper mod for the above
-    // TODO: Randomly sample from the dictionary first?
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        let f = match File::open("data/scrabble.txt") {
-            Ok(file) => file,
-            Err(e) => panic!("Couldn't open dictionary: {:?}", e),
-        };
-        // Get only those words that fit on the table.
-        BufReader::new(f)
-            .lines()
-            .map(|l| l.unwrap())
-            .filter(|l| l.len() <= state.total_num_items)
-            .map(|l| Box::new(Self::from_word(l)))
+        ScrabbleDict::words_with_max_length(state.total_num_items)
+            .into_iter()
+            .map(|w| Box::new(Self::from_word(w)))
             .collect()
     }
 

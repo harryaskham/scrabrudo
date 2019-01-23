@@ -493,7 +493,7 @@ speculate! {
 
     describe "a scrabrudo game" {
         it "runs to completion" {
-            let mut game = ScrabrudoGame::new(6, HashSet::new());
+            let mut game = ScrabrudoGame::new(2, HashSet::new());
             loop {
                 game = game.run_turn();
                 match game.current_outcome {
