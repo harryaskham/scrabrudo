@@ -148,38 +148,34 @@ impl Tile {
     }
 }
 
+/* Copied from Wiki for UK Scrabble distribution:
+1 point: E ×12, A ×9, I ×9, O ×8, N ×6, R ×6, T ×6, L ×4, S ×4, U ×4
+2 points: D ×4, G ×3
+3 points: B ×2, C ×2, M ×2, P ×2
+4 points: F ×2, H ×2, V ×2, W ×2, Y ×2
+5 points: K ×1
+8 points: J ×1, X ×1
+10 points: Q ×1, Z ×1
+
+By hand, that's
+[9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1]
+*/
+
 impl rand::distributions::Distribution<Tile> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Tile {
-        // TODO: Incorporate proper tile probabilities here.
-        match rng.gen_range(0, 26) {
-            0 => Tile::A,
-            1 => Tile::B,
-            2 => Tile::C,
-            3 => Tile::D,
-            4 => Tile::E,
-            5 => Tile::F,
-            6 => Tile::G,
-            7 => Tile::H,
-            8 => Tile::I,
-            9 => Tile::J,
-            10 => Tile::K,
-            11 => Tile::L,
-            12 => Tile::M,
-            13 => Tile::N,
-            14 => Tile::O,
-            15 => Tile::P,
-            16 => Tile::Q,
-            17 => Tile::R,
-            18 => Tile::S,
-            19 => Tile::T,
-            20 => Tile::U,
-            21 => Tile::V,
-            22 => Tile::W,
-            23 => Tile::X,
-            24 => Tile::Y,
-            25 => Tile::Z,
-            _ => panic!(),
+        // TODO: This could be a lot more efficient. We compute the CDF every time.
+        let mut distribution: Vec<u32> = vec![9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1];
+        for i in 1..distribution.len() {
+            distribution[i] += distribution[i - 1]
         }
+
+        let bound = rng.gen_range(0, distribution.last().unwrap());
+        for i in 0..distribution.len() {
+            if distribution[i] >= bound {
+                return Tile::from_usize(i)
+            }
+        }
+        panic!("Should not reach here, we covered every case above");
     }
 }
 
