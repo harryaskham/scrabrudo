@@ -32,6 +32,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::fs::File;
+use rayon::prelude::*;
 
 /// Sorts a word by its chars.
 fn sort_word(word: &String) -> String {
@@ -72,23 +73,17 @@ fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> Has
     let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 5).collect();
 
     info!("Generating all candidate strings...");
-    words.iter().enumerate().map(|(i, w)| {
-        if i % 100 == 0 { info!("{} / {}: {}", i, &words.len(), w); }
-        all_sorted_substrings(&w, max_length)
-    }).flatten().collect()
+    words.par_iter().map(|w| all_sorted_substrings(&w, max_length)).flatten().collect()
 }
 
 /// Creates a lookup table from word substrings
 fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
     let candidates = generate_sorted_candidates(words, max_num_items);
-    info!("Computing for {} candidates", candidates.len());
-    c! { 
-        s.clone() => {
-            if i % 100 == 0 { info!("{} / {}: {}", i, &candidates.len(), s); }
-            probabilities(&s, max_num_items, num_trials)
-        },
-        for (i, s) in candidates.iter().enumerate()
-    }
+    info!("Computing {} probabilities for {} candidates, {} trials each", max_num_items + 1, candidates.len(), num_trials);
+    candidates
+        .par_iter()
+        .map(|s| (s.clone(), probabilities(&s, max_num_items, num_trials)))
+        .collect::<HashMap<String, Vec<f64>>>()
 }
 
 /// Computes the various probabilities of finding the given substring in each possible number of
