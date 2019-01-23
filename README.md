@@ -1,6 +1,20 @@
 # scrabrudo
 A letter-based variant on a game of dice estimation.
 
+## Playing
+
+To play Scrabrudo against 1 other player, with human going first, run:
+
+```
+RUST_LOG=info cargo run --bin scrabrudo scrabrudo 2 0
+```
+
+To play basic Perudo against 3:
+
+```
+RUST_LOG=info cargo run --bin scrabrudo perudo 4 0
+```
+
 ## Initialization
 
 The tile variant of the game requires multinomial CDF probability calculations (e.g. I want to know the probability that 'cat' is on the table - I hold a 'c' and my opponents have 10 tiles between them. This is:
@@ -22,3 +36,5 @@ RUST_LOG=info cargo run --bin precompute 5 1000
 ```
 
 Which would compute enough of the table for 2 player, 5 tiles each play - since it will cover all possibilities of searching for any valid substring within 5 tiles. This runs 1000 trials per subword.
+
+The game ships with a lookup table, so no need to regenerate, but the larger the table, the larger the words can be.
