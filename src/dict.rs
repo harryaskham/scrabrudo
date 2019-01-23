@@ -21,7 +21,7 @@ impl ScrabbleDict {
             .collect()
     }
 
-    pub fn has_word(word: String) -> bool {
-        Self::words().contains(&word)
+    pub fn has_word(word: &String) -> bool {
+        Self::words().contains(word)
     }
 }
