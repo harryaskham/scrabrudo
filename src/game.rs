@@ -568,18 +568,18 @@ speculate! {
             };
 
             // Cat is there, but has dupes
-            assert!(game.is_correct(&ScrabrudoBet::from_word("cat".into())));
-            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word("cat".into())));
+            assert!(game.is_correct(&ScrabrudoBet::from_word(&"cat".into())));
+            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"cat".into())));
 
             // Same with boot.
-            assert!(game.is_correct(&ScrabrudoBet::from_word("boot".into())));
-            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word("boot".into())));
+            assert!(game.is_correct(&ScrabrudoBet::from_word(&"boot".into())));
+            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"boot".into())));
 
             // Nonsense words are not correct.
-            assert!(!game.is_correct(&ScrabrudoBet::from_word("ccatbo".into())));
+            assert!(!game.is_correct(&ScrabrudoBet::from_word(&"ccatbo".into())));
 
             // A palafico word is detected as such.
-            assert!(game.is_exactly_correct(&ScrabrudoBet::from_word("caboose".into())));
+            assert!(game.is_exactly_correct(&ScrabrudoBet::from_word(&"caboose".into())));
         }
     }
 }

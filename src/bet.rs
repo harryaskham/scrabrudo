@@ -273,7 +273,7 @@ impl Bet for ScrabrudoBet {
     fn all(state: &GameState) -> Vec<Box<Self>> {
         ScrabbleDict::words_with_max_length(state.total_num_items)
             .into_iter()
-            .map(|w| Box::new(Self::from_word(w)))
+            .map(|w| Box::new(Self::from_word(&w)))
             .collect()
     }
 
@@ -479,7 +479,6 @@ fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
 }
 
 impl ScrabrudoBet {
-    // TODO: Take a reference.
     pub fn from_word(word: &String) -> Self {
         let tiles = word
             .chars()
@@ -537,7 +536,7 @@ speculate! {
                 tiles: vec![Tile::C, Tile::A, Tile::T],
             };
             assert_eq!("cat", bet.as_word());
-            assert_eq!(ScrabrudoBet::from_word("cat".into()), bet);
+            assert_eq!(ScrabrudoBet::from_word(&"cat".into()), bet);
         }
 
         it "can load all bets for a certain number of tiles" {
@@ -566,13 +565,13 @@ speculate! {
 
         it "orders bets correctly" {
             let bets = vec![
-                ScrabrudoBet::from_word("a".into()),
-                ScrabrudoBet::from_word("at".into()),
-                ScrabrudoBet::from_word("cat".into()),
-                ScrabrudoBet::from_word("chat".into()),
-                ScrabrudoBet::from_word("chart".into()),
-                ScrabrudoBet::from_word("chariot".into()),
-                ScrabrudoBet::from_word("chariots".into()),
+                ScrabrudoBet::from_word(&"a".into()),
+                ScrabrudoBet::from_word(&"at".into()),
+                ScrabrudoBet::from_word(&"cat".into()),
+                ScrabrudoBet::from_word(&"chat".into()),
+                ScrabrudoBet::from_word(&"chart".into()),
+                ScrabrudoBet::from_word(&"chariot".into()),
+                ScrabrudoBet::from_word(&"chariots".into()),
             ];
 
             for i in 0..(bets.len() - 1) {
@@ -583,7 +582,7 @@ speculate! {
         }
 
         it "generates all above" {
-            let original = ScrabrudoBet::from_word("cat".into());
+            let original = ScrabrudoBet::from_word(&"cat".into());
             let bets = original.all_above(&GameState{
                 total_num_items: 4,
                 num_items_per_player: vec![2, 2],
@@ -596,9 +595,9 @@ speculate! {
         }
 
         it "treats anagram bets equally" {
-            assert_eq!(ScrabrudoBet::from_word("cat".into()), ScrabrudoBet::from_word("act".into()));
-            assert_eq!(ScrabrudoBet::from_word("desserts".into()), ScrabrudoBet::from_word("stressed".into()));
-            assert_ne!(ScrabrudoBet::from_word("dessert".into()), ScrabrudoBet::from_word("stressed".into()));
+            assert_eq!(ScrabrudoBet::from_word(&"cat".into()), ScrabrudoBet::from_word(&"act".into()));
+            assert_eq!(ScrabrudoBet::from_word(&"desserts".into()), ScrabrudoBet::from_word(&"stressed".into()));
+            assert_ne!(ScrabrudoBet::from_word(&"dessert".into()), ScrabrudoBet::from_word(&"stressed".into()));
         }
     }
 

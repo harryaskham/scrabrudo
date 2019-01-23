@@ -78,7 +78,7 @@ fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> 
     info!("Computing for '{}'", s);
     (0..=max_num_items)
         .into_iter()
-        .map(|n| monte_carlo(n as u32, &ScrabrudoBet::from_word(s.clone()).tiles, num_trials, false))
+        .map(|n| monte_carlo(n as u32, &ScrabrudoBet::from_word(s).tiles, num_trials, false))
         .collect()
 }
 

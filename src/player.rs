@@ -424,7 +424,7 @@ impl Player for ScrabrudoPlayer {
 
             // Parse input, repeat on error.
             // Either return a valid bet or take input again.
-            let bet = ScrabrudoBet::from_word(line.into());
+            let bet = ScrabrudoBet::from_word(&line.into());
 
             return match current_outcome {
                 TurnOutcome::First => {
@@ -530,9 +530,9 @@ speculate! {
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
-            let opponent_bet = &ScrabrudoBet::from_word("cat".into());
+            let opponent_bet = &ScrabrudoBet::from_word(&"cat".into());
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
-            assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word("chat".into())));
+            assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
 
             // TODO: This test takes forever b/c it is Monte-Carlo'ing every single word.
             // We should not do this for guaranteed bets, but then will also need our lookup table
