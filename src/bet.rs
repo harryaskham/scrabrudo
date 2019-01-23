@@ -1,6 +1,6 @@
+/// Bet definitions and related logic.
 use crate::dict::*;
 use crate::die::*;
-/// Bet definitions and related logic.
 use crate::game::*;
 use crate::hand::*;
 use crate::player::*;
@@ -418,7 +418,13 @@ pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
 
 /// Runs a crappy MC simulation to get rough probability of success.
 /// TODO: If keeping this approach, can multi-thread it easily.
-fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
+/// TODO: Move to a monte_carlo module.
+pub fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
+    if n == 0 {
+        // Cannot find a word in no tiles.
+        return 0.0
+    }
+
     let mut success = 0;
     let mut failure = 0;
     let tile_counts = count_map(tiles);
@@ -449,6 +455,7 @@ fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
             failure += 1
         }
     }
+
     success as f64 / num_trials as f64
 }
 
@@ -472,6 +479,7 @@ fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
 }
 
 impl ScrabrudoBet {
+    // TODO: Take a reference.
     pub fn from_word(word: String) -> Self {
         let tiles = word
             .chars()
