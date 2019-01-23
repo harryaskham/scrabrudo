@@ -337,37 +337,8 @@ impl Bet for ScrabrudoBet {
             return 1.0;
         }
 
-        /* DISABLING THIS as it's destined to fail without an efficient Multinomial CDF computer.
-        // Create a map from tile to count.
-        let mut counts_to_find = count_map(&tiles_to_find);
-
-        // We need to search for these tiles in the total unseen remaining tiles.
+        // Get the nunmber of tiles we have to search in.
         let num_tiles = state.total_num_items - player.num_items();
-
-        // Define the per-class probability for each tile.
-        // The class probabilities are all equal here.
-        // TODO: If we introduce unequal letter probabilities then this needs updating too.
-        let p = iter::repeat(1.0 / 26.0).take(26);
-
-        // We now generate the acceptable lower per-class counts for each tile.
-        // TODO: Probably there will always be more unsuccessful counts, invert?
-        let lower_bounds = (0..26)
-            .into_iter()
-            .map(|i| counts_to_find.get(&Tile::from_usize(i as usize)).unwrap())
-            .collect::<Vec<&usize>>();
-
-        // Get all possible combinations of counts.
-        // e.g. All 26-tuples that sum to the remaining
-        let combos = get_combos(26, num_tiles);
-
-        // Now remove any violating combos.
-        */
-
-        let num_tiles = state.total_num_items - player.num_items();
-        /* DISABLING on the fly monte-carlo.
-         * We have the lookup table now.
-         * monte_carlo(num_tiles as u32, &tiles_to_find, 10, false)
-         */
 
         // Sort the tiles to find and turn into a word to match the lookup.
         tiles_to_find.sort_by(|a, b| a.char().cmp(&b.char()));
@@ -386,36 +357,7 @@ impl Bet for ScrabrudoBet {
         _state: &GameState,
         _player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
-        // TODO: This will stop the computer from ever considering Palafico but we should revisit
-        // when decided upon a meaning for the rule.
-        // If we decide it's no-duplicates-allowed then we have
-        //
-        // P(C=1 A=1 T=2 | n=16, p=[1/26..])
-        //
-        // But this still maps on to a large number of probabilities to compute given the other
-        // possible values this can take.
-
-        /* NOTE this also still doesn't work - we need to check in our own hand to see if we have
-         * breaking duplicates.
-        // First get the set of tiles we need to find.
-        let mut tiles_to_find = self.tiles.clone();
-        for tile in player.items() {
-            match tiles_to_find.binary_search(tile) {
-                Ok(i) => {
-                    tiles_to_find.remove(i);
-                }
-                Err(_) => (),
-            };
-        }
-
-        // If we have all the tiles, it's a guaranteed hit.
-        if tiles_to_find.is_empty() {
-            return 1.0;
-        }
-
-        let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 10, true)
-        */
+        // TODO: Requires augmentation of the lookup table.
         0.0
     }
 }
@@ -471,25 +413,6 @@ pub fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f
     }
 
     success as f64 / num_trials as f64
-}
-
-/// Generates all combinations of values of length n that sum to sum.
-fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
-    if n == 1 {
-        return vec![vec![sum]];
-    }
-
-    // Recursively generate these tree-like from the current count.
-    let mut all_combos = Vec::new();
-    for i in 0..=sum {
-        let combos = get_combos(n - 1, sum - i);
-        for mut combo in combos {
-            combo.push(i);
-            all_combos.push(combo);
-        }
-    }
-
-    all_combos
 }
 
 impl ScrabrudoBet {
@@ -750,20 +673,6 @@ speculate! {
 
             // TODO: More tests for the prob-calcs.
         }
-    }
-
-    describe "combo generation" {
-        it "generates many possible combos" {
-            let combos = get_combos(3, 2);
-            assert_eq!(6, combos.len());
-        }
-
-        /* Disabled due to long runtime :( remove when a better solution is found.
-        it "generates all the combos for a plausible early-game word setup" {
-            let combos = get_combos(26, 20);
-            assert_eq!(0, combos.len());
-        }
-        */
     }
 
     describe "monte carlo" {
