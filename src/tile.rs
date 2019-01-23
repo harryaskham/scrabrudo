@@ -164,7 +164,9 @@ By hand, that's
 impl rand::distributions::Distribution<Tile> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Tile {
         // TODO: This could be a lot more efficient. We compute the CDF every time.
-        let mut distribution: Vec<u32> = vec![9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1];
+        let mut distribution: Vec<u32> = vec![
+            9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1,
+        ];
         for i in 1..distribution.len() {
             distribution[i] += distribution[i - 1]
         }
@@ -172,7 +174,7 @@ impl rand::distributions::Distribution<Tile> for Standard {
         let bound = rng.gen_range(0, distribution.last().unwrap());
         for i in 0..distribution.len() {
             if distribution[i] >= bound {
-                return Tile::from_usize(i)
+                return Tile::from_usize(i);
             }
         }
         panic!("Should not reach here, we covered every case above");

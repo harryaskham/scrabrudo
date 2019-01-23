@@ -1,7 +1,7 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
-use crate::die::*;
 use crate::dict::*;
+use crate::die::*;
 use crate::game::*;
 use crate::hand::*;
 use crate::testing;
@@ -305,8 +305,8 @@ impl Player for PerudoPlayer {
                     } else {
                         continue;
                     }
-                },
-                _ => panic!()
+                }
+                _ => panic!(),
             };
         }
     }
@@ -330,12 +330,7 @@ impl Eq for ScrabrudoPlayer {}
 
 impl fmt::Display for ScrabrudoPlayer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}: {:?}",
-            self.id,
-            &self.hand.items
-        )
+        write!(f, "{}: {:?}", self.id, &self.hand.items)
     }
 }
 
@@ -439,7 +434,7 @@ impl Player for ScrabrudoPlayer {
                     } else {
                         TurnOutcome::Bet(bet)
                     }
-                },
+                }
                 TurnOutcome::Bet(current_bet) => {
                     if !ScrabbleDict::has_word(line.into()) {
                         info!("First bet was not in dict");
@@ -450,8 +445,8 @@ impl Player for ScrabrudoPlayer {
                     } else {
                         TurnOutcome::Bet(bet)
                     }
-                },
-                _ => panic!()
+                }
+                _ => panic!(),
             };
         }
     }

@@ -1,10 +1,10 @@
+use crate::dict::*;
 use crate::die::*;
 /// Bet definitions and related logic.
 use crate::game::*;
 use crate::hand::*;
 use crate::player::*;
 use crate::testing;
-use crate::dict::*;
 use crate::tile::*;
 
 use probability::prelude::*;
@@ -369,8 +369,8 @@ impl Bet for ScrabrudoBet {
 
     fn palafico_prob(
         &self,
-        state: &GameState,
-        player: Box<dyn Player<V = Self::V, B = Self>>,
+        _state: &GameState,
+        _player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         // TODO: This will stop the computer from ever considering Palafico but we should revisit
         // when decided upon a meaning for the rule.

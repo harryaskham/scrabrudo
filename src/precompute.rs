@@ -11,9 +11,9 @@ pub mod testing;
 
 use crate::dict::ScrabbleDict;
 
-use std::collections::HashSet;
-use std::collections::HashMap;
 use speculate::speculate;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 /// Sorts a word by its chars.
 fn sort_word(word: &String) -> String {
@@ -28,10 +28,10 @@ fn sort_word(word: &String) -> String {
 /// e.g. AEHT, AET, EHT, AH, HT, EH, AT, AE, ET, H, A, T, E
 fn all_sorted_substrings(word: &String) -> HashSet<String> {
     if word.len() == 1 {
-        return hashset!{ sort_word(word) };
+        return hashset! { sort_word(word) };
     }
 
-    let mut substrings = hashset!{ sort_word(word) };
+    let mut substrings = hashset! { sort_word(word) };
 
     for i in 0..word.len() {
         let mut word_without = word.clone();
@@ -49,8 +49,8 @@ fn generate_sorted_candidates() -> HashSet<String> {
     HashSet::new()
 }
 
-/// Creates a lookup table from word substrings 
-fn create_lookup(max_num_tiles: usize) -> HashMap<String, Vec<f64>> {
+/// Creates a lookup table from word substrings
+fn create_lookup(_max_num_tiles: usize) -> HashMap<String, Vec<f64>> {
     HashMap::new()
 }
 

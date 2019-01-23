@@ -1,11 +1,11 @@
 /// Game logic.
 use crate::bet::*;
-use crate::die::*;
 use crate::dict::*;
-use crate::tile::*;
+use crate::die::*;
 use crate::hand::*;
 use crate::player::*;
 use crate::testing;
+use crate::tile::*;
 
 use speculate::speculate;
 use std::collections::HashMap;
@@ -47,7 +47,11 @@ pub trait Game: Sized + fmt::Display {
     fn new(num_players: usize, items_per_player: usize, human_indices: HashSet<usize>) -> Self {
         let mut players = Vec::new();
         for id in 0..num_players {
-            players.push(Self::create_player(id, items_per_player, human_indices.contains(&id)));
+            players.push(Self::create_player(
+                id,
+                items_per_player,
+                human_indices.contains(&id),
+            ));
         }
         Self::new_with(players, 0, TurnOutcome::First)
     }
@@ -60,7 +64,11 @@ pub trait Game: Sized + fmt::Display {
     ) -> Self;
 
     /// Creates a new player.
-    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>>;
+    fn create_player(
+        id: usize,
+        items_per_player: usize,
+        human: bool,
+    ) -> Box<dyn Player<B = Self::B, V = Self::V>>;
 
     /// Gets a list of all the players.
     fn players(&self) -> &Vec<Box<dyn Player<B = Self::B, V = Self::V>>>;
@@ -272,11 +280,15 @@ impl Game for PerudoGame {
     type B = PerudoBet;
     type P = PerudoPlayer;
 
-    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+    fn create_player(
+        id: usize,
+        items_per_player: usize,
+        human: bool,
+    ) -> Box<dyn Player<B = Self::B, V = Self::V>> {
         Box::new(PerudoPlayer {
             id: id,
             human: human,
-            hand: Hand::<Die>::new(items_per_player as u32)
+            hand: Hand::<Die>::new(items_per_player as u32),
         })
     }
 
@@ -376,11 +388,15 @@ impl Game for ScrabrudoGame {
     type B = ScrabrudoBet;
     type P = ScrabrudoPlayer;
 
-    fn create_player(id: usize, items_per_player: usize, human: bool) -> Box<dyn Player<B = Self::B, V = Self::V>> {
+    fn create_player(
+        id: usize,
+        items_per_player: usize,
+        human: bool,
+    ) -> Box<dyn Player<B = Self::B, V = Self::V>> {
         Box::new(ScrabrudoPlayer {
             id: id,
             human: human,
-            hand: Hand::<Tile>::new(items_per_player as u32)
+            hand: Hand::<Tile>::new(items_per_player as u32),
         })
     }
 
@@ -421,7 +437,12 @@ impl Game for ScrabrudoGame {
             return false;
         }
 
-        let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
+        let all_tiles = (&self.players)
+            .iter()
+            .map(|p| p.items())
+            .flatten()
+            .map(|t| t.clone())
+            .collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
         let mut is_correct = true;
@@ -441,7 +462,7 @@ impl Game for ScrabrudoGame {
             "Bet was {}, {} is{}in {:?}",
             if is_correct { "correct" } else { "incorrect" },
             bet.as_word(),
-            if is_correct { " " } else { " not "},
+            if is_correct { " " } else { " not " },
             all_tiles
         );
 
@@ -450,7 +471,12 @@ impl Game for ScrabrudoGame {
 
     // TODO: Remove duplication with a helper here.
     fn is_exactly_correct(&self, bet: &ScrabrudoBet) -> bool {
-        let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
+        let all_tiles = (&self.players)
+            .iter()
+            .map(|p| p.items())
+            .flatten()
+            .map(|t| t.clone())
+            .collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
         let mut is_correct = true;
@@ -470,7 +496,7 @@ impl Game for ScrabrudoGame {
             "Bet was {}, {} is{}exactly in {:?}",
             if is_correct { "correct" } else { "incorrect" },
             bet.as_word(),
-            if is_correct { " " } else { " not "},
+            if is_correct { " " } else { " not " },
             all_tiles
         );
 

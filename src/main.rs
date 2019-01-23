@@ -12,12 +12,12 @@ extern crate approx;
 extern crate cute;
 
 pub mod bet;
+pub mod dict;
 pub mod die;
 pub mod game;
 pub mod hand;
 pub mod player;
 pub mod testing;
-pub mod dict;
 pub mod tile;
 
 use crate::game::*;
@@ -55,7 +55,7 @@ fn main() {
                     _ => continue,
                 }
             }
-        },
+        }
         "scrabrudo" => {
             let mut game = ScrabrudoGame::new(num_players, 5, human_indices);
             loop {
@@ -66,6 +66,6 @@ fn main() {
                 }
             }
         }
-        x => info!("Invalid mode: {}", mode)
+        _x => info!("Invalid mode: {}", mode),
     }
 }
