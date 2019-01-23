@@ -415,6 +415,7 @@ impl Game for ScrabrudoGame {
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
         // A bet is correct if it's in the dictionary and it can be made from the tiles around the
         // table.
+        // TODO: CHECK I DICT
         let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
@@ -436,7 +437,7 @@ impl Game for ScrabrudoGame {
             if is_correct { "correct" } else { "incorrect" },
             bet.as_word(),
             if is_correct { " " } else { " not "},
-            all_tiles.into_iter().map(|t| t.char()).collect::<Vec<char>>()
+            all_tiles
         );
 
         is_correct
@@ -465,7 +466,7 @@ impl Game for ScrabrudoGame {
             if is_correct { "correct" } else { "incorrect" },
             bet.as_word(),
             if is_correct { " " } else { " not "},
-            all_tiles.into_iter().map(|t| t.char()).collect::<Vec<char>>()
+            all_tiles
         );
 
         is_correct

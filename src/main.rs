@@ -29,7 +29,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
 
-    info!("Perudo 0.1");
+    info!("Scrabrudo 0.1");
     if args.len() < 3 {
         info!("Please supply mode and number of players");
         return;

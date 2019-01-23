@@ -332,10 +332,7 @@ impl fmt::Display for ScrabrudoPlayer {
             f,
             "{}: {:?}",
             self.id,
-            (&self.hand.items)
-                .into_iter()
-                .map(|t| t.char())
-                .collect::<Vec<char>>()
+            &self.hand.items
         )
     }
 }
