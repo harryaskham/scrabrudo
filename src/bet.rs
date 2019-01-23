@@ -480,7 +480,7 @@ fn get_combos(n: usize, sum: usize) -> Vec<Vec<usize>> {
 
 impl ScrabrudoBet {
     // TODO: Take a reference.
-    pub fn from_word(word: String) -> Self {
+    pub fn from_word(word: &String) -> Self {
         let tiles = word
             .chars()
             .map(|c| Tile::from_char(c))
