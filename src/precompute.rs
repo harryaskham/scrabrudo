@@ -65,11 +65,9 @@ fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
 
 /// Generates all possible valid candidate strings.
 /// This is all words plus all non-contiguous substrings of those words.
-fn generate_sorted_candidates(max_length: usize) -> HashSet<String> {
-    info!("Loading Scrabble dictionary...");
-
+fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> HashSet<String> {
     // TODO: Support words of more than 5 in length.
-    let words: Vec<String> = SCRABBLE_DICT.words.clone().into_iter().filter(|w| w.len() <= 5).collect();
+    let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 5).collect();
 
     info!("Generating all candidate strings...");
     words.iter().enumerate().map(|(i, w)| {
@@ -79,8 +77,8 @@ fn generate_sorted_candidates(max_length: usize) -> HashSet<String> {
 }
 
 /// Creates a lookup table from word substrings
-fn create_lookup(max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
-    let candidates = generate_sorted_candidates(max_num_items);
+fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
+    let candidates = generate_sorted_candidates(words, max_num_items);
     info!("Computing for {} candidates", candidates.len());
     c! { 
         s.clone() => {
@@ -124,7 +122,7 @@ fn main() {
     let max_num_items = args[1].parse::<usize>().unwrap();
     let num_trials = args[2].parse::<u32>().unwrap();
 
-    let lookup = create_lookup(max_num_items, num_trials);
+    let lookup = create_lookup(&SCRABBLE_DICT.words, max_num_items, num_trials);
     persist_lookup(&lookup, "data/lookup");
 }
 
@@ -177,6 +175,46 @@ speculate! {
             };
             let actual = all_sorted_substrings(&"hate".into(), 2);
             assert_eq!(expected, actual);
+        }
+    }
+
+    describe "lookup generation" {
+        it "creates a small lookup table" {
+            let lookup = create_lookup(&hashset!{ "a".into() }, 5, 10000);
+            assert_eq!(1, lookup.len());
+            assert!(lookup.contains_key("a".into()));
+
+            let probs = lookup.get("a".into()).unwrap();
+
+            // We should always have for each amount of tiles, plus the zero-case.
+            assert_eq!(6, probs.len());
+
+            // Finding 'a' in 0 dice is always impossible.
+            assert_eq!(0.0, probs[0]);
+
+            // Always monotonically increasing as you add more dice
+            for i in 1..5 {
+                assert!(probs[i] > probs[i - 1]);
+            }
+        }
+
+        it "creates a larger lookup table" {
+            let lookup = create_lookup(&hashset!{ "bat".into(), "cat".into() }, 5, 10);
+            let actual_keys = lookup.keys().map(|k| k.clone()).collect::<HashSet<String>>();
+            let expected_keys: HashSet<String> = hashset! {
+                "abt".into(),
+                "act".into(),
+                "ab".into(),
+                "ac".into(),
+                "at".into(),
+                "bt".into(),
+                "ct".into(),
+                "a".into(),
+                "b".into(),
+                "c".into(),
+                "t".into(),
+            };
+            assert_eq!(expected_keys, actual_keys);
         }
     }
 }

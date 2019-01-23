@@ -189,7 +189,7 @@ pub trait Game: Sized + fmt::Display {
             // Refresh all players, loser loses an item.
             let players = self.refreshed_players_with_loss(loser_index);
             info!(
-                "Player {} loses a die, now has {}",
+                "Player {} loses an item, now has {}",
                 players[loser_index].id(),
                 players[loser_index].num_items()
             );

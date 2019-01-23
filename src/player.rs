@@ -429,7 +429,7 @@ impl Player for ScrabrudoPlayer {
             return match current_outcome {
                 TurnOutcome::First => {
                     if !SCRABBLE_DICT.has_word(&line.into()) {
-                        info!("First bet was not in dict");
+                        info!("Bet was not in dict");
                         continue;
                     } else {
                         TurnOutcome::Bet(bet)
@@ -437,10 +437,10 @@ impl Player for ScrabrudoPlayer {
                 }
                 TurnOutcome::Bet(current_bet) => {
                     if !SCRABBLE_DICT.has_word(&line.into()) {
-                        info!("First bet was not in dict");
+                        info!("Bet was not in dict");
                         continue;
                     } else if bet <= *current_bet {
-                        info!("Bet wasn't high enoguh");
+                        info!("Bet wasn't high enough");
                         continue;
                     } else {
                         TurnOutcome::Bet(bet)
@@ -533,10 +533,6 @@ speculate! {
             let opponent_bet = &ScrabrudoBet::from_word(&"cat".into());
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
-
-            // TODO: This test takes forever b/c it is Monte-Carlo'ing every single word.
-            // We should not do this for guaranteed bets, but then will also need our lookup table
-            // algorithm to make the AI work properly.
         }
     }
 }
