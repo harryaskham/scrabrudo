@@ -432,7 +432,6 @@ impl Player for ScrabrudoPlayer {
             // Parse input, repeat on error.
             // Either return a valid bet or take input again.
             let bet = ScrabrudoBet::from_word(line.into());
-            debug!("{}", bet);
 
             return match current_outcome {
                 TurnOutcome::First => {
@@ -440,7 +439,6 @@ impl Player for ScrabrudoPlayer {
                         info!("First bet was not in dict");
                         continue;
                     } else {
-                        info!("all good, passing on human bet");
                         TurnOutcome::Bet(bet)
                     }
                 },
@@ -452,7 +450,6 @@ impl Player for ScrabrudoPlayer {
                         info!("Bet wasn't high enoguh");
                         continue;
                     } else {
-                        info!("all good, passing on human bet");
                         TurnOutcome::Bet(bet)
                     }
                 },

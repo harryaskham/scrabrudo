@@ -211,7 +211,6 @@ pub trait Game: Sized + fmt::Display {
         // Get the current state based on this player's move.
         let player = &self.players()[self.current_index()];
         let current_outcome = player.play(&self.state(), &self.current_outcome());
-        info!("play() finished");
 
         // TODO: Include historic bets in the context given to the player.
         debug!("{}", self);
