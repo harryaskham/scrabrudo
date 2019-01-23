@@ -421,7 +421,7 @@ impl Game for ScrabrudoGame {
     }
 
     fn is_valid(&self, bet: &Self::B) -> bool {
-        bet.is_valid(&self.last_bet())
+        bet.is_valid(Some(&self.last_bet()))
     }
 
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {

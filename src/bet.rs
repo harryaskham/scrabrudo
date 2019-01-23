@@ -260,6 +260,17 @@ impl PartialOrd for PerudoBet {
     }
 }
 
+impl PerudoBet {
+    // TODO: Move to trait.
+    pub fn is_valid(&self, last_bet: Option<&Self>) -> bool {
+        // Only compare if there is actually a last bet.
+        match last_bet {
+            Some(last_bet) => self > last_bet,
+            None => true
+        }
+    }
+}
+
 /// A single bet consisting of Scrabble tiles.
 #[derive(Debug, Clone, Hash)]
 pub struct ScrabrudoBet {
@@ -408,12 +419,17 @@ impl Bet for ScrabrudoBet {
 
 impl ScrabrudoBet {
     // TODO: Move to trait and get this on PerudoBet too.
-    pub fn is_valid(&self, last_bet: &Self) -> bool {
+    pub fn is_valid(&self, last_bet: Option<&Self>) -> bool {
         if !ScrabbleDict::has_word(self.as_word()) {
             info!("'{}' is not in the dictionary", self.as_word());
             return false
         }
-        self > last_bet
+
+        // Only compare if there is actually a last bet.
+        match last_bet {
+            Some(last_bet) => self > last_bet,
+            None => true
+        }
     }
 }
 

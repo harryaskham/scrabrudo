@@ -296,17 +296,23 @@ impl Player for PerudoPlayer {
                 value: Die::from_usize(value),
                 quantity: quantity,
             };
-            return match current_outcome {
-                TurnOutcome::First => TurnOutcome::Bet(bet),
-                TurnOutcome::Bet(current_bet) => {
-                    // TODO: Smell. We're duplicating the is_valid logic in game here.
-                    if bet > *current_bet {
-                        return TurnOutcome::Bet(bet);
+
+            match current_outcome {
+                TurnOutcome::First => {
+                    if bet.is_valid(None) {
+                        TurnOutcome::Bet(bet);
                     } else {
                         continue;
                     }
-                }
-                _ => panic!(),
+                },
+                TurnOutcome::Bet(current_bet) => {
+                    if bet.is_valid(Some(current_bet)) {
+                        TurnOutcome::Bet(bet);
+                    } else {
+                        continue;
+                    }
+                },
+                _ => panic!()
             };
         }
     }
@@ -431,17 +437,22 @@ impl Player for ScrabrudoPlayer {
             // Either return a valid bet or take input again.
             let bet = ScrabrudoBet::from_word(line.into());
 
-            return match current_outcome {
-                TurnOutcome::First => TurnOutcome::Bet(bet),
-                TurnOutcome::Bet(current_bet) => {
-                    // TODO: Smell. We're duplicating the is_valid logic in game here.
-                    if bet.is_valid(current_bet) {
-                        return TurnOutcome::Bet(bet);
+            match current_outcome {
+                TurnOutcome::First => {
+                    if bet.is_valid(None) {
+                        TurnOutcome::Bet(bet);
                     } else {
                         continue;
                     }
-                }
-                _ => panic!(),
+                },
+                TurnOutcome::Bet(current_bet) => {
+                    if bet.is_valid(Some(current_bet)) {
+                        TurnOutcome::Bet(bet);
+                    } else {
+                        continue;
+                    }
+                },
+                _ => panic!()
             };
         }
     }
