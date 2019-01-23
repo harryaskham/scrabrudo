@@ -297,7 +297,9 @@ impl Player for PerudoPlayer {
                 quantity: quantity,
             };
 
-            match current_outcome {
+            info!("{} received", bet);
+
+            return match current_outcome {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
                     if bet > *current_bet {
@@ -432,13 +434,14 @@ impl Player for ScrabrudoPlayer {
             let bet = ScrabrudoBet::from_word(line.into());
             debug!("{}", bet);
 
-            match current_outcome {
+            return match current_outcome {
                 TurnOutcome::First => {
                     if !ScrabbleDict::has_word(line.into()) {
                         info!("First bet was not in dict");
                         continue;
                     } else {
-                        TurnOutcome::Bet(bet);
+                        info!("all good, passing on human bet");
+                        TurnOutcome::Bet(bet)
                     }
                 },
                 TurnOutcome::Bet(current_bet) => {
@@ -449,7 +452,8 @@ impl Player for ScrabrudoPlayer {
                         info!("Bet wasn't high enoguh");
                         continue;
                     } else {
-                        TurnOutcome::Bet(bet);
+                        info!("all good, passing on human bet");
+                        TurnOutcome::Bet(bet)
                     }
                 },
                 _ => panic!()
