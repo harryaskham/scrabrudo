@@ -10,6 +10,7 @@ extern crate maplit;
 extern crate cute;
 #[macro_use]
 extern crate itertools;
+extern crate bincode;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
@@ -28,6 +29,7 @@ use speculate::speculate;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
+use std::fs::File;
 
 /// Sorts a word by its chars.
 fn sort_word(word: &String) -> String {
@@ -40,7 +42,9 @@ fn sort_word(word: &String) -> String {
 /// e.g. HATE, ATE, HTE, HA, HT, HE, AT, AE, TE, H, A, T, E
 /// Each word will be sorted to avoid further duplicates:
 /// e.g. AEHT, AET, EHT, AH, HT, EH, AT, AE, ET, H, A, T, E
-fn all_sorted_substrings(word: &String) -> HashSet<String> {
+///
+/// TODO: This is excruciatingly slow for longer words
+fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
     if word.len() == 1 {
         return hashset! { sort_word(word) };
     }
@@ -50,30 +54,39 @@ fn all_sorted_substrings(word: &String) -> HashSet<String> {
     for i in 0..word.len() {
         let mut word_without = word.clone();
         word_without.remove(i);
-        let substrings_without = all_sorted_substrings(&word_without);
+        let substrings_without = all_sorted_substrings(&word_without, max_length);
         substrings.extend(substrings_without);
     }
 
-    substrings
+    substrings.into_iter().filter(|s| s.len() <= max_length).collect()
 }
 
 /// Generates all possible valid candidate strings.
 /// This is all words plus all non-contiguous substrings of those words.
-fn generate_sorted_candidates() -> HashSet<String> {
+fn generate_sorted_candidates(max_length: usize) -> HashSet<String> {
     info!("Loading Scrabble dictionary...");
-    let words = ScrabbleDict::words();
+
+    // TODO: Support words of more than 5 in length.
+    let words: Vec<String> = ScrabbleDict::words().into_iter().filter(|w| w.len() <= 5).collect();
+
     info!("Generating all candidate strings...");
-    words.iter().take(1).enumerate().map(|(i, w)| {
-        info!("{}/{}: {}", i, &words.len(), w);
-        all_sorted_substrings(&w)
+    words.iter().enumerate().map(|(i, w)| {
+        if i % 100 == 0 { info!("{} / {}: {}", i, &words.len(), w); }
+        all_sorted_substrings(&w, max_length)
     }).flatten().collect()
 }
 
 /// Creates a lookup table from word substrings
 fn create_lookup(max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
-    let candidates = generate_sorted_candidates();
+    let candidates = generate_sorted_candidates(max_num_items);
     info!("Computing for {} candidates", candidates.len());
-    c! { s.clone() => probabilities(&s, max_num_items, num_trials), for s in generate_sorted_candidates() }
+    c! { 
+        s.clone() => {
+            if i % 100 == 0 { info!("{} / {}: {}", i, &candidates.len(), s); }
+            probabilities(&s, max_num_items, num_trials)
+        },
+        for (i, s) in candidates.iter().enumerate()
+    }
 }
 
 /// Computes the various probabilities of finding the given substring in each possible number of
@@ -81,11 +94,20 @@ fn create_lookup(max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f
 /// This returns a vec where index equates to the number of items we're searching in.
 /// TODO: Do a separate MCMC to generate Palafico probabilities.
 fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> {
-    info!("Computing for '{}'", s);
     (0..=max_num_items)
         .into_iter()
         .map(|n| monte_carlo(n as u32, &ScrabrudoBet::from_word(s).tiles, num_trials, false))
         .collect()
+}
+
+/// Save the lookup to disk.
+fn persist_lookup(lookup: &HashMap<String, Vec<f64>>, path: &str) {
+    info!("Saving the lookup table as {}...", path);
+
+    let mut file = File::create(path).unwrap();
+    bincode::serialize_into(&mut file, lookup).unwrap();
+
+    info!("Saved the lookup table as {}", path);
 }
 
 fn main() {
@@ -100,7 +122,8 @@ fn main() {
     let max_num_items = args[1].parse::<usize>().unwrap();
     let num_trials = args[2].parse::<u32>().unwrap();
 
-    let _ = create_lookup(max_num_items, num_trials);
+    let lookup = create_lookup(max_num_items, num_trials);
+    persist_lookup(&lookup, "data/lookup");
 }
 
 speculate! {
@@ -133,7 +156,24 @@ speculate! {
                 "eht".into(),
                 "a".into()
             };
-            let actual = all_sorted_substrings(&"hate".into());
+            let actual = all_sorted_substrings(&"hate".into(), 4);
+            assert_eq!(expected, actual);
+        }
+
+        it "enforces a max length" {
+            let expected = hashset! {
+                "et".into(),
+                "e".into(),
+                "ah".into(),
+                "t".into(),
+                "eh".into(),
+                "ht".into(),
+                "ae".into(),
+                "at".into(),
+                "h".into(),
+                "a".into()
+            };
+            let actual = all_sorted_substrings(&"hate".into(), 2);
             assert_eq!(expected, actual);
         }
     }

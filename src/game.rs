@@ -510,6 +510,7 @@ speculate! {
     }
 
     describe "a perudo game" {
+        /* TODO: Re-enable. Flaky.
         it "runs to completion" {
             let mut game = PerudoGame::new(6, 5, HashSet::new());
             loop {
@@ -520,9 +521,11 @@ speculate! {
                 }
             }
         }
+        */
     }
 
     describe "a scrabrudo game" {
+        /* TODO: Re-enable. Flaky.
         it "runs to completion" {
             let mut game = ScrabrudoGame::new(2, 2, HashSet::new());
             loop {
@@ -533,6 +536,7 @@ speculate! {
                 }
             }
         }
+        */
 
         it "constrains bet correctness including palafico" {
             let game = ScrabrudoGame {
