@@ -11,6 +11,8 @@ extern crate approx;
 #[macro_use(c)]
 extern crate cute;
 extern crate bincode;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod bet;
 pub mod dict;

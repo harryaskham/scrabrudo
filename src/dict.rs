@@ -10,10 +10,12 @@ pub struct ScrabbleDict {
     pub lookup: HashMap<String, Vec<f64>>,
 }
 
-pub static SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new();
+lazy_static! {
+    pub static ref SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new();
+}
 
 impl ScrabbleDict {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             words: Self::words(),
             lookup: Self::lookup(),
@@ -21,15 +23,13 @@ impl ScrabbleDict {
     }
 
     /// A set of all words in the dictionary.
-    const fn words() -> HashSet<String> {
-        unsafe {
-            info!("Loading Scrabble dictionary...");
-            let f = match File::open("data/scrabble.txt") {
-                Ok(file) => file,
-                Err(e) => panic!("Couldn't open dictionary: {:?}", e),
-            };
-            BufReader::new(f).lines().map(|l| l.unwrap()).collect()
-        }
+    fn words() -> HashSet<String> {
+        info!("Loading Scrabble dictionary...");
+        let f = match File::open("data/scrabble.txt") {
+            Ok(file) => file,
+            Err(e) => panic!("Couldn't open dictionary: {:?}", e),
+        };
+        BufReader::new(f).lines().map(|l| l.unwrap()).collect()
     }
 
     /// All the words up to a certain length.
@@ -46,14 +46,12 @@ impl ScrabbleDict {
     }
 
     /// Loads the lookup table from sorted char-lists to per-quantity probability lists.
-    const fn lookup() -> HashMap<String, Vec<f64>> {
-        unsafe {
-            info!("Loading lookup table...");
-            let f = match File::open("data/lookup") {
-                Ok(file) => file,
-                Err(e) => panic!("Couldn't open lookup: {:?}", e),
-            };
-            bincode::deserialize_from(f).unwrap()
-        }
+    fn lookup() -> HashMap<String, Vec<f64>> {
+        info!("Loading lookup table...");
+        let f = match File::open("data/lookup") {
+            Ok(file) => file,
+            Err(e) => panic!("Couldn't open lookup: {:?}", e),
+        };
+        bincode::deserialize_from(f).unwrap()
     }
 }

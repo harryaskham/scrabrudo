@@ -11,6 +11,8 @@ extern crate cute;
 #[macro_use]
 extern crate itertools;
 extern crate bincode;
+#[macro_use]
+extern crate lazy_static;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;

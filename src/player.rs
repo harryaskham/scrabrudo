@@ -511,7 +511,6 @@ speculate! {
     }
 
     describe "scrabrudo player" {
-        /* TODO: Reenable once we have deterministic SSTable lookup. Flaky now.
         it "generates the most likely bet" {
             let player = &ScrabrudoPlayer {
                 id: 0,
@@ -539,6 +538,5 @@ speculate! {
             // We should not do this for guaranteed bets, but then will also need our lookup table
             // algorithm to make the AI work properly.
         }
-        */
     }
 }
