@@ -44,6 +44,7 @@ fn main() {
         human_indices.insert(args[3].parse::<usize>().unwrap());
     }
 
+    // TODO: Helper to kill dupe.
     match mode.as_str() {
         "perudo" => {
             let mut game = PerudoGame::new(num_players, 5, human_indices);

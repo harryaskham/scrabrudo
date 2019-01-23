@@ -426,10 +426,16 @@ impl ScrabrudoBet {
         }
 
         // Only compare if there is actually a last bet.
-        match last_bet {
+        let is_valid = match last_bet {
             Some(last_bet) => self > last_bet,
             None => true
+        };
+
+        if !is_valid {
+            info!("{} is not larger than {}", self, last_bet.unwrap())
         }
+
+        is_valid
     }
 }
 

@@ -436,19 +436,24 @@ impl Player for ScrabrudoPlayer {
             // Parse input, repeat on error.
             // Either return a valid bet or take input again.
             let bet = ScrabrudoBet::from_word(line.into());
+            debug!("{}", bet);
 
             match current_outcome {
                 TurnOutcome::First => {
                     if bet.is_valid(None) {
+                        info!("okiedoke");
                         TurnOutcome::Bet(bet);
                     } else {
+                        info!("First bet was not valid");
                         continue;
                     }
                 },
                 TurnOutcome::Bet(current_bet) => {
                     if bet.is_valid(Some(current_bet)) {
+                        info!("okiedoke");
                         TurnOutcome::Bet(bet);
                     } else {
+                        info!("nnokiedoke");
                         continue;
                     }
                 },

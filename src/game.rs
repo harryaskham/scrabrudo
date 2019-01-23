@@ -316,7 +316,8 @@ impl Game for PerudoGame {
     }
 
     fn is_valid(&self, bet: &Self::B) -> bool {
-        bet > &self.last_bet()
+        // TODO: It's clear here that last_bet should be an Option - there isn't always a last_bet.
+        bet.is_valid(Some(&self.last_bet()))
     }
 
     fn is_correct(&self, bet: &PerudoBet) -> bool {
