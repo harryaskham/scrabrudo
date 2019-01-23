@@ -63,7 +63,7 @@ fn generate_sorted_candidates() -> HashSet<String> {
     info!("Loading Scrabble dictionary...");
     let words = ScrabbleDict::words();
     info!("Generating all candidate strings...");
-    words.iter().enumerate().map(|(i, w)| {
+    words.iter().take(1).enumerate().map(|(i, w)| {
         info!("{}/{}: {}", i, &words.len(), w);
         all_sorted_substrings(&w)
     }).flatten().collect()
