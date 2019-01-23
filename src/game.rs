@@ -1,6 +1,7 @@
 /// Game logic.
 use crate::bet::*;
 use crate::die::*;
+use crate::dict::*;
 use crate::tile::*;
 use crate::hand::*;
 use crate::player::*;
@@ -415,7 +416,12 @@ impl Game for ScrabrudoGame {
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
         // A bet is correct if it's in the dictionary and it can be made from the tiles around the
         // table.
-        // TODO: CHECK I DICT
+        
+        if !ScrabbleDict::has_word(bet.as_word()) {
+            info!("'{}' is not in the dictionary", bet.as_word());
+            return false
+        }
+
         let all_tiles = (&self.players).iter().map(|p| p.items()).flatten().map(|t| t.clone()).collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
@@ -501,6 +507,54 @@ speculate! {
                     _ => continue,
                 }
             }
+        }
+
+        it "constrains bet correctness including palafico" {
+            let game = ScrabrudoGame {
+                players: vec![
+                    Box::new(ScrabrudoPlayer {
+                        id: 0,
+                        human: false,
+                        hand: Hand::<Tile>{
+                            items: vec![
+                                Tile::A,
+                                Tile::C,
+                                Tile::T,
+                            ],
+                        },
+                    }),
+                    Box::new(ScrabrudoPlayer {
+                        id: 1,
+                        human: false,
+                        hand: Hand::<Tile>{
+                            items: vec![
+                                Tile::B,
+                                Tile::O,
+                                Tile::O,
+                                Tile::T,
+                                Tile::S,
+                                Tile::E,
+                            ],
+                        },
+                    })
+                ],
+                current_index: 0,
+                current_outcome: TurnOutcome::First,
+            };
+
+            // Cat is there, but has dupes
+            assert!(game.is_correct(&ScrabrudoBet::from_word("cat".into())));
+            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word("cat".into())));
+
+            // Same with boot.
+            assert!(game.is_correct(&ScrabrudoBet::from_word("boot".into())));
+            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word("boot".into())));
+
+            // Nonsense words are not correct.
+            assert!(!game.is_correct(&ScrabrudoBet::from_word("ccatbo".into())));
+
+            // A palafico word is detected as such.
+            assert!(game.is_exactly_correct(&ScrabrudoBet::from_word("caboose".into())));
         }
     }
 }
