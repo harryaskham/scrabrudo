@@ -60,7 +60,13 @@ fn all_sorted_substrings(word: &String) -> HashSet<String> {
 /// Generates all possible valid candidate strings.
 /// This is all words plus all non-contiguous substrings of those words.
 fn generate_sorted_candidates() -> HashSet<String> {
-    ScrabbleDict::words().into_iter().map(|w| all_sorted_substrings(&w)).flatten().collect()
+    info!("Loading Scrabble dictionary...");
+    let words = ScrabbleDict::words();
+    info!("Generating all candidate strings...");
+    words.iter().enumerate().map(|(i, w)| {
+        info!("{}/{}: {}", i, &words.len(), w);
+        all_sorted_substrings(&w)
+    }).flatten().collect()
 }
 
 /// Creates a lookup table from word substrings
