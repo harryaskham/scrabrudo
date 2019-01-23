@@ -298,16 +298,10 @@ impl Player for PerudoPlayer {
             };
 
             match current_outcome {
-                TurnOutcome::First => {
-                    if bet.is_valid(None) {
-                        TurnOutcome::Bet(bet);
-                    } else {
-                        continue;
-                    }
-                },
+                TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
-                    if bet.is_valid(Some(current_bet)) {
-                        TurnOutcome::Bet(bet);
+                    if bet > *current_bet {
+                        return TurnOutcome::Bet(bet);
                     } else {
                         continue;
                     }
@@ -440,21 +434,22 @@ impl Player for ScrabrudoPlayer {
 
             match current_outcome {
                 TurnOutcome::First => {
-                    if bet.is_valid(None) {
-                        info!("okiedoke");
-                        TurnOutcome::Bet(bet);
-                    } else {
-                        info!("First bet was not valid");
+                    if !ScrabbleDict::has_word(line.into()) {
+                        info!("First bet was not in dict");
                         continue;
+                    } else {
+                        TurnOutcome::Bet(bet);
                     }
                 },
                 TurnOutcome::Bet(current_bet) => {
-                    if bet.is_valid(Some(current_bet)) {
-                        info!("okiedoke");
-                        TurnOutcome::Bet(bet);
-                    } else {
-                        info!("nnokiedoke");
+                    if !ScrabbleDict::has_word(line.into()) {
+                        info!("First bet was not in dict");
                         continue;
+                    } else if bet <= *current_bet {
+                        info!("Bet wasn't high enoguh");
+                        continue;
+                    } else {
+                        TurnOutcome::Bet(bet);
                     }
                 },
                 _ => panic!()

@@ -74,9 +74,6 @@ pub trait Game: Sized + fmt::Display {
     /// Gets the actual number of dice around the table, allowing for wildcards.
     fn num_logical_items(&self, val: Self::V) -> usize;
 
-    /// Whether or not the given bet is even a valid bet.
-    fn is_valid(&self, bet: &Self::B) -> bool;
-
     /// Whether or not the given bet is correct at the current state.
     fn is_correct(&self, bet: &Self::B) -> bool;
 
@@ -315,11 +312,6 @@ impl Game for PerudoGame {
         }
     }
 
-    fn is_valid(&self, bet: &Self::B) -> bool {
-        // TODO: It's clear here that last_bet should be an Option - there isn't always a last_bet.
-        bet.is_valid(Some(&self.last_bet()))
-    }
-
     fn is_correct(&self, bet: &PerudoBet) -> bool {
         let max_correct_bet = PerudoBet {
             value: bet.value.clone(),
@@ -421,14 +413,11 @@ impl Game for ScrabrudoGame {
         self.num_items_with(val)
     }
 
-    fn is_valid(&self, bet: &Self::B) -> bool {
-        bet.is_valid(Some(&self.last_bet()))
-    }
-
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
         // A bet is correct if it's in the dictionary and it can be made from the tiles around the
         // table.
-        if !self.is_valid(bet) {
+        if !ScrabbleDict::has_word(bet.as_word()) {
+            info!("Spurious - we reject the bet because its not in-dict - should be checkignn all aangrams");
             return false;
         }
 
