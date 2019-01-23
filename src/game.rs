@@ -432,7 +432,7 @@ impl Game for ScrabrudoGame {
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
         // A bet is correct if it's in the dictionary and it can be made from the tiles around the
         // table.
-        if !ScrabbleDict::has_word(&bet.as_word()) {
+        if !SCRABBLE_DICT.has_word(&bet.as_word()) {
             info!("Spurious - we reject the bet because its not in-dict - should be checkignn all aangrams");
             return false;
         }

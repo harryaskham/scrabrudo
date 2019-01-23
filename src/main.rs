@@ -10,6 +10,7 @@ extern crate probability;
 extern crate approx;
 #[macro_use(c)]
 extern crate cute;
+extern crate bincode;
 
 pub mod bet;
 pub mod dict;

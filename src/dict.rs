@@ -1,27 +1,59 @@
-use std::collections::HashSet;
 /// Module handling dictionary management.
+
+use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-pub struct ScrabbleDict {}
+pub struct ScrabbleDict {
+    pub words: HashSet<String>,
+    pub lookup: HashMap<String, Vec<f64>>,
+}
+
+pub static SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new();
 
 impl ScrabbleDict {
-    pub fn words() -> HashSet<String> {
-        let f = match File::open("data/scrabble.txt") {
-            Ok(file) => file,
-            Err(e) => panic!("Couldn't open dictionary: {:?}", e),
-        };
-        BufReader::new(f).lines().map(|l| l.unwrap()).collect()
+    pub const fn new() -> Self {
+        Self {
+            words: Self::words(),
+            lookup: Self::lookup(),
+        }
     }
 
-    pub fn words_with_max_length(max_length: usize) -> HashSet<String> {
-        Self::words()
+    /// A set of all words in the dictionary.
+    const fn words() -> HashSet<String> {
+        unsafe {
+            info!("Loading Scrabble dictionary...");
+            let f = match File::open("data/scrabble.txt") {
+                Ok(file) => file,
+                Err(e) => panic!("Couldn't open dictionary: {:?}", e),
+            };
+            BufReader::new(f).lines().map(|l| l.unwrap()).collect()
+        }
+    }
+
+    /// All the words up to a certain length.
+    pub fn words_with_max_length(&self, max_length: usize) -> HashSet<String> {
+        self.words.clone()
             .into_iter()
             .filter(|w| w.len() <= max_length)
             .collect()
     }
 
-    pub fn has_word(word: &String) -> bool {
-        Self::words().contains(word)
+    /// Does the dictionary contain this word?
+    pub fn has_word(&self, word: &String) -> bool {
+        self.words.contains(word)
+    }
+
+    /// Loads the lookup table from sorted char-lists to per-quantity probability lists.
+    const fn lookup() -> HashMap<String, Vec<f64>> {
+        unsafe {
+            info!("Loading lookup table...");
+            let f = match File::open("data/lookup") {
+                Ok(file) => file,
+                Err(e) => panic!("Couldn't open lookup: {:?}", e),
+            };
+            bincode::deserialize_from(f).unwrap()
+        }
     }
 }

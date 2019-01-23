@@ -271,7 +271,7 @@ impl Bet for ScrabrudoBet {
     type V = Tile;
 
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        ScrabbleDict::words_with_max_length(state.total_num_items)
+        SCRABBLE_DICT.words_with_max_length(state.total_num_items)
             .into_iter()
             .map(|w| Box::new(Self::from_word(&w)))
             .collect()
@@ -364,7 +364,21 @@ impl Bet for ScrabrudoBet {
         */
 
         let num_tiles = state.total_num_items - player.num_items();
-        monte_carlo(num_tiles as u32, &tiles_to_find, 10, false)
+        /* DISABLING on the fly monte-carlo.
+         * We have the lookup table now.
+         * monte_carlo(num_tiles as u32, &tiles_to_find, 10, false)
+         */
+
+        // Sort the tiles to find and turn into a word to match the lookup.
+        tiles_to_find.sort_by(|a, b| a.char().cmp(&b.char()));
+        let substring = tiles_to_find.into_iter().map(|t| t.char()).collect::<String>();
+        if !SCRABBLE_DICT.lookup.contains_key(&substring) {
+            0.0
+        } else if substring.len() > 5 {
+            0.0 // TODO: REMOVE THIS ONCE WE HAVE A FULL LOOKUP TABLE
+        } else {
+            SCRABBLE_DICT.lookup.get(&substring).unwrap()[num_tiles]
+        }
     }
 
     fn palafico_prob(

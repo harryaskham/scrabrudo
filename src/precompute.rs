@@ -22,7 +22,7 @@ pub mod testing;
 pub mod dict;
 pub mod tile;
 
-use crate::dict::ScrabbleDict;
+use crate::dict::*;
 use crate::bet::*;
 
 use speculate::speculate;
@@ -67,7 +67,7 @@ fn generate_sorted_candidates(max_length: usize) -> HashSet<String> {
     info!("Loading Scrabble dictionary...");
 
     // TODO: Support words of more than 5 in length.
-    let words: Vec<String> = ScrabbleDict::words().into_iter().filter(|w| w.len() <= 5).collect();
+    let words: Vec<String> = SCRABBLE_DICT.words.clone().into_iter().filter(|w| w.len() <= 5).collect();
 
     info!("Generating all candidate strings...");
     words.iter().enumerate().map(|(i, w)| {
