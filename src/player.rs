@@ -297,8 +297,6 @@ impl Player for PerudoPlayer {
                 quantity: quantity,
             };
 
-            info!("{} received", bet);
-
             return match current_outcome {
                 TurnOutcome::First => TurnOutcome::Bet(bet),
                 TurnOutcome::Bet(current_bet) => {
