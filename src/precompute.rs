@@ -76,7 +76,7 @@ fn sort_word(word: &String) -> String {
 fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
     let chars = &(word.chars().collect::<Vec<char>>())[..];
     powerset(chars)
-        .into_iter()
+        .par_iter()
         .map(|cs| cs.into_iter().collect::<String>())
         .filter(|w| w.len() > 0 && w.len() <= max_length)
         .map(|w| sort_word(&w))
