@@ -92,7 +92,6 @@ fn create_lookup(
     num_trials: u32,
 ) -> HashMap<String, Vec<f64>> {
     let word_counter = Arc::new(Mutex::new(0));
-    let entry_counter = Arc::new(Mutex::new(0));
     words
         .par_iter()
         .flat_map(|w| {
@@ -101,8 +100,6 @@ fn create_lookup(
             all_sorted_substrings(w, max_num_items)
         })
         .map(|s| {
-            *entry_counter.lock().unwrap() += 1;
-            info! {"{} entries computed", entry_counter.lock().unwrap()};
             (s.clone(), probabilities(&s, max_num_items, num_trials))
         })
         .collect::<HashMap<String, Vec<f64>>>()
