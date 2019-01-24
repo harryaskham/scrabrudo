@@ -404,8 +404,8 @@ impl Player for ScrabrudoPlayer {
             );
             info!("Hand for Player {}", self);
             match current_outcome {
-                TurnOutcome::First => info!("Enter bet (e.g. cat):"),
-                TurnOutcome::Bet(_) => info!("Enter bet (e.g. cat, *p=perudo, *pal=palafico):"),
+                TurnOutcome::First => info!("Enter bet (?word=score):"),
+                TurnOutcome::Bet(_) => info!("Enter bet (*p=perudo, *pal=palafico, ?word=score):"),
                 _ => panic!(),
             };
 
@@ -413,7 +413,7 @@ impl Player for ScrabrudoPlayer {
             io::stdin()
                 .read_line(&mut line)
                 .expect("Failed to read input");
-            let line = line.trim();
+            let line: String = line.trim().into();
 
             if line == "*p" {
                 return TurnOutcome::Perudo;
@@ -421,14 +421,19 @@ impl Player for ScrabrudoPlayer {
             if line == "*pal" {
                 return TurnOutcome::Palafico;
             }
+            if &line[0..1] == "?" {
+                let query = &line[1..];
+                info!("'{}' scores {}", query, ScrabrudoBet::from_word(&query.into()).score());
+                continue;
+            }
 
             // Parse input, repeat on error.
             // Either return a valid bet or take input again.
-            let bet = ScrabrudoBet::from_word(&line.into());
+            let bet = ScrabrudoBet::from_word(&line);
 
             return match current_outcome {
                 TurnOutcome::First => {
-                    if !SCRABBLE_DICT.has_word(&line.into()) {
+                    if !SCRABBLE_DICT.has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else {
@@ -436,7 +441,7 @@ impl Player for ScrabrudoPlayer {
                     }
                 }
                 TurnOutcome::Bet(current_bet) => {
-                    if !SCRABBLE_DICT.has_word(&line.into()) {
+                    if !SCRABBLE_DICT.has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else if bet <= *current_bet {
