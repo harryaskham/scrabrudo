@@ -13,6 +13,7 @@ extern crate itertools;
 extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
+extern crate rayon;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
@@ -30,6 +31,8 @@ use crate::bet::*;
 use speculate::speculate;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::env;
 use std::fs::File;
 use rayon::prelude::*;
@@ -73,16 +76,26 @@ fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> Has
     let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 5).collect();
 
     info!("Generating all candidate strings...");
-    words.par_iter().map(|w| all_sorted_substrings(&w, max_length)).flatten().collect()
+    let counter = Arc::new(Mutex::new(0));
+    words.par_iter().map(|w| {
+        *counter.lock().unwrap() += 1;
+        info!{"{} / {} words expanded", counter.lock().unwrap(), words.len()}
+        all_sorted_substrings(&w, max_length)
+    }).flatten().collect()
 }
 
 /// Creates a lookup table from word substrings
 fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
     let candidates = generate_sorted_candidates(words, max_num_items);
     info!("Computing {} probabilities for {} candidates, {} trials each", max_num_items + 1, candidates.len(), num_trials);
+    let counter = Arc::new(Mutex::new(0));
     candidates
         .par_iter()
-        .map(|s| (s.clone(), probabilities(&s, max_num_items, num_trials)))
+        .map(|s| {
+            *counter.lock().unwrap() += 1;
+            info!{"{} / {} substrings evaluated", counter.lock().unwrap(), candidates.len()};
+            (s.clone(), probabilities(&s, max_num_items, num_trials))
+        })
         .collect::<HashMap<String, Vec<f64>>>()
 }
 

@@ -13,6 +13,7 @@ extern crate cute;
 extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
+extern crate rayon;
 
 pub mod bet;
 pub mod dict;
