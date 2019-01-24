@@ -29,7 +29,7 @@ More efficient is the probability 'cat' is not on the table. This is all tuples 
 
 Therefore, instead, we perform Monte Carlo simulation for every possible valid subset of letters we might want to find in the tiles on the table. This is a large precomputation, as each of the 170K words reduces down to 100s of sub-words, which we sort and then sample N tiles, seeing how many times the tiles actually appear.
 
-The lookup table is stored as `data/lookup`. It is created by:
+The lookup table is stored as `data/lookup_<max_num_tiles>_<num_trials>.bin`. It is created by e.g.:
 
 ```
 RUST_LOG=info cargo run --bin precompute 5 1000

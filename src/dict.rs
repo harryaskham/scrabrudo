@@ -48,7 +48,8 @@ impl ScrabbleDict {
     /// Loads the lookup table from sorted char-lists to per-quantity probability lists.
     fn lookup() -> HashMap<String, Vec<f64>> {
         info!("Loading lookup table...");
-        let f = match File::open("data/lookup") {
+        // TODO: Predicate this on the number of dice around the table if we have bigger lookups.
+        let f = match File::open("data/lookup_5_1000.bin") {
             Ok(file) => file,
             Err(e) => panic!("Couldn't open lookup: {:?}", e),
         };

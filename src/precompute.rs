@@ -122,7 +122,7 @@ fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> 
 }
 
 /// Save the lookup to disk.
-fn persist_lookup(lookup: &HashMap<String, Vec<f64>>, path: &str) {
+fn persist_lookup(lookup: &HashMap<String, Vec<f64>>, path: &String) {
     info!("Saving the lookup table as {}...", path);
 
     let mut file = File::create(path).unwrap();
@@ -144,7 +144,7 @@ fn main() {
     let num_trials = args[2].parse::<u32>().unwrap();
 
     let lookup = create_lookup(&SCRABBLE_DICT.words, max_num_items, num_trials);
-    persist_lookup(&lookup, "data/lookup");
+    persist_lookup(&lookup, &format!("data/lookup_{}_{}.bin", max_num_items, num_trials));
 }
 
 speculate! {
