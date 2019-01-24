@@ -273,7 +273,8 @@ impl Bet for ScrabrudoBet {
     type V = Tile;
 
     fn all(state: &GameState) -> Vec<Box<Self>> {
-        SCRABBLE_DICT.words_with_max_length(state.total_num_items)
+        SCRABBLE_DICT
+            .words_with_max_length(state.total_num_items)
             .into_iter()
             .map(|w| Box::new(Self::from_word(&w)))
             .collect()
@@ -344,7 +345,10 @@ impl Bet for ScrabrudoBet {
 
         // Sort the tiles to find and turn into a word to match the lookup.
         tiles_to_find.sort_by(|a, b| a.char().cmp(&b.char()));
-        let substring = tiles_to_find.into_iter().map(|t| t.char()).collect::<String>();
+        let substring = tiles_to_find
+            .into_iter()
+            .map(|t| t.char())
+            .collect::<String>();
         if !SCRABBLE_DICT.lookup.contains_key(&substring) {
             0.0
         } else {
@@ -378,7 +382,7 @@ pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
 pub fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
     if n == 0 {
         // Cannot find a word in no tiles.
-        return 0.0
+        return 0.0;
     }
 
     let mut success = 0;

@@ -1,7 +1,6 @@
-/// Module handling dictionary management.
-
-use std::collections::HashSet;
 use std::collections::HashMap;
+/// Module handling dictionary management.
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -34,7 +33,8 @@ impl ScrabbleDict {
 
     /// All the words up to a certain length.
     pub fn words_with_max_length(&self, max_length: usize) -> HashSet<String> {
-        self.words.clone()
+        self.words
+            .clone()
             .into_iter()
             .filter(|w| w.len() <= max_length)
             .collect()

@@ -17,25 +17,25 @@ extern crate rayon;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
+pub mod dict;
 pub mod die;
 pub mod game;
 pub mod hand;
 pub mod player;
 pub mod testing;
-pub mod dict;
 pub mod tile;
 
-use crate::dict::*;
 use crate::bet::*;
+use crate::dict::*;
 
+use rayon::prelude::*;
 use speculate::speculate;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::env;
 use std::fs::File;
-use rayon::prelude::*;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 // TODO: I stole this code - find a library or something.
 pub fn powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
@@ -86,19 +86,23 @@ fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
 /// Creates the lookup in a single iteration.
 /// First we explode out via flat_map to all possible substrings, and then we map these to their
 /// Monte Carlo probabilities.
-fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
+fn create_lookup(
+    words: &HashSet<String>,
+    max_num_items: usize,
+    num_trials: u32,
+) -> HashMap<String, Vec<f64>> {
     let word_counter = Arc::new(Mutex::new(0));
     let entry_counter = Arc::new(Mutex::new(0));
     words
         .par_iter()
         .flat_map(|w| {
             *word_counter.lock().unwrap() += 1;
-            info!{"{} / {} words expanded", word_counter.lock().unwrap(), words.len()};
+            info! {"{} / {} words expanded", word_counter.lock().unwrap(), words.len()};
             all_sorted_substrings(w, max_num_items)
         })
         .map(|s| {
             *entry_counter.lock().unwrap() += 1;
-            info!{"{} entries computed", entry_counter.lock().unwrap()};
+            info! {"{} entries computed", entry_counter.lock().unwrap()};
             (s.clone(), probabilities(&s, max_num_items, num_trials))
         })
         .collect::<HashMap<String, Vec<f64>>>()
@@ -111,7 +115,14 @@ fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32)
 fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> {
     (0..=max_num_items)
         .into_iter()
-        .map(|n| monte_carlo(n as u32, &ScrabrudoBet::from_word(s).tiles, num_trials, false))
+        .map(|n| {
+            monte_carlo(
+                n as u32,
+                &ScrabrudoBet::from_word(s).tiles,
+                num_trials,
+                false,
+            )
+        })
         .collect()
 }
 
@@ -138,7 +149,10 @@ fn main() {
     let num_trials = args[2].parse::<u32>().unwrap();
 
     let lookup = create_lookup(&SCRABBLE_DICT.words, max_num_items, num_trials);
-    persist_lookup(&lookup, &format!("data/lookup_{}_{}.bin", max_num_items, num_trials));
+    persist_lookup(
+        &lookup,
+        &format!("data/lookup_{}_{}.bin", max_num_items, num_trials),
+    );
 }
 
 speculate! {
