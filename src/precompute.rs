@@ -73,14 +73,8 @@ fn sort_word(word: &String) -> String {
 ///
 /// This is equivalent to the powerset of the characters of the word minus the empty word, sorted,
 /// and filtered down to only those things that fit on the table.
-///
-/// TODO: This is excruciatingly slow for longer words
 fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
-
-    // Get the word as a char-slice
     let chars = &(word.chars().collect::<Vec<char>>())[..];
-
-    // Now find all subsets below a certain length internally sorted.
     powerset(chars)
         .into_iter()
         .map(|cs| cs.into_iter().collect::<String>())
@@ -92,9 +86,6 @@ fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
 /// Generates all possible valid candidate strings.
 /// This is all words plus all non-contiguous substrings of those words.
 fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> HashSet<String> {
-    // TODO: Support words of more than 8 in length.
-    //let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 8).collect();
-
     info!("Generating all candidate strings...");
     let counter = Arc::new(Mutex::new(0));
     words.par_iter().map(|w| {
