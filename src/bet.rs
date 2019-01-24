@@ -406,7 +406,8 @@ impl Bet for ScrabrudoBet {
             .map(|t| t.char())
             .collect::<String>();
         if !SCRABBLE_DICT.lookup.contains_key(&substring) {
-            0.0
+            0.0  // If we somehow didn't compute this length yet then 0.0
+            // We can prob remove the above
         } else {
             SCRABBLE_DICT.lookup.get(&substring).unwrap()[num_tiles]
         }
@@ -417,7 +418,8 @@ impl Bet for ScrabrudoBet {
         _state: &GameState,
         _player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
-        // TODO: Requires augmentation of the lookup table.
+        // TODO: Not quite ready for full Palafico yet, we have the exact-find prob but we also
+        // need the logic to make sure our own hand doesn't spill over.
         0.0
     }
 }
@@ -434,21 +436,22 @@ pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
 
 /// Runs MC simulation to get rough probability of success.
 /// TODO: Move to a monte_carlo module.
-pub fn monte_carlo(n: u32, word: &String, num_trials: u32, exact: bool) -> f64 {
+pub fn monte_carlo(n: u32, word: &String, num_trials: u32) -> f64 {
     if n == 0 {
         // Cannot find a word in no tiles.
-        return 0.0;
+        return 0.0
     }
 
     let bet = ScrabrudoBet::from_word(word);
 
     let mut success = 0;
-    let mut failure = 0;
-    for _ in 0..num_trials {
-        if bet.is_correct(&bet.tiles, false) {
+    for i in 0..num_trials {
+        let all_tiles = Hand::<Tile>::new(n).items;
+        if bet.is_correct(&all_tiles, false) {
+            info!("success: {} in {:?}", bet, all_tiles);
             success += 1;
         } else {
-            failure += 1;
+            info!("fail: {} in {:?}", bet, all_tiles);
         }
     }
 
@@ -567,6 +570,18 @@ speculate! {
             assert_eq!(ScrabrudoBet::from_word(&"cat".into()), ScrabrudoBet::from_word(&"act".into()));
             assert_eq!(ScrabrudoBet::from_word(&"desserts".into()), ScrabrudoBet::from_word(&"stressed".into()));
             assert_ne!(ScrabrudoBet::from_word(&"dessert".into()), ScrabrudoBet::from_word(&"stressed".into()));
+        }
+
+        it "checks bet correctness" {
+            assert!(ScrabrudoBet::from_word(&"cat".into()).is_correct(&vec![Tile::C, Tile::A, Tile::T], false));
+            assert!(ScrabrudoBet::from_word(&"cat".into()).is_correct(&vec![Tile::C, Tile::A, Tile::Blank], false));
+            assert!(!ScrabrudoBet::from_word(&"cat".into()).is_correct(&vec![Tile::C, Tile::Blank], false));
+            assert!(ScrabrudoBet::from_word(&"cat".into()).is_correct(&vec![Tile::C, Tile::A, Tile::T, Tile::H], false));
+            assert!(ScrabrudoBet::from_word(&"chat".into()).is_correct(&vec![Tile::Blank, Tile::A, Tile::T, Tile::H], false));
+        }
+
+        it "checks exact bet correctness" {
+            // TODO: implement
         }
     }
 
@@ -709,9 +724,7 @@ speculate! {
 
     describe "monte carlo" {
         it "approximates the chance of a bet" {
-            let p = monte_carlo(20, &"cat".into(), 10000, false);
-            assert!(p > 0.10);
-            assert!(p < 0.30);
+            monte_carlo(20, &"cat".into(), 10000);
         }
     }
 }

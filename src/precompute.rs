@@ -117,7 +117,6 @@ fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> 
                 n as u32,
                 s,
                 num_trials,
-                false,
             )
         })
         .collect()
@@ -219,6 +218,7 @@ speculate! {
             assert_eq!(0.0, probs[0]);
 
             // Always monotonically increasing as you add more dice
+            info!("{:?}", probs);
             for i in 1..5 {
                 assert!(probs[i] > probs[i - 1]);
             }
