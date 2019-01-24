@@ -437,6 +437,9 @@ impl Game for ScrabrudoGame {
             return false;
         }
 
+        // We need to extract the blanks here and kind of "cout them down" as we find the bet is
+        // missing letters. If we run out of blanks, we lose.
+        
         let all_tiles = (&self.players)
             .iter()
             .map(|p| p.items())
@@ -445,17 +448,22 @@ impl Game for ScrabrudoGame {
             .collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
-        let mut is_correct = true;
+        let mut num_chars_missing = 0;
         for (tile, count) in &tile_counts {
             let actual_count = match all_tile_counts.get(tile) {
                 Some(c) => *c,
                 None => 0,
             };
             if actual_count < *count {
-                is_correct = false;
-                break;
+                num_chars_missing += *count - actual_count;
             }
         }
+
+        let num_blanks = all_tiles
+            .iter()
+            .filter(|t| *t == &Tile::Blank)
+            .count();
+        let is_correct = num_chars_missing <= num_blanks;
 
         // Log out the outcome.
         info!(
@@ -469,8 +477,14 @@ impl Game for ScrabrudoGame {
         is_correct
     }
 
-    // TODO: Remove duplication with a helper here.
+    // Lots of duplication here - subtle differences inside.
+    // We say it's exact if no letter goes over, and if we need to use blanks, we use all of them.
     fn is_exactly_correct(&self, bet: &ScrabrudoBet) -> bool {
+        if !SCRABBLE_DICT.has_word(&bet.as_word()) {
+            info!("Spurious - we reject the bet because its not in-dict - should be checking all aangrams");
+            return false;
+        }
+
         let all_tiles = (&self.players)
             .iter()
             .map(|p| p.items())
@@ -479,17 +493,26 @@ impl Game for ScrabrudoGame {
             .collect::<Vec<Tile>>();
         let tile_counts = count_map(&bet.tiles);
         let all_tile_counts = count_map(&all_tiles);
-        let mut is_correct = true;
+        let mut num_chars_missing = 0;
+        let mut any_over = false;
         for (tile, count) in &tile_counts {
             let actual_count = match all_tile_counts.get(tile) {
                 Some(c) => *c,
                 None => 0,
             };
-            if actual_count != *count {
-                is_correct = false;
+            if actual_count > *count {
+                any_over = true;
                 break;
+            } else if actual_count < *count {
+                num_chars_missing += *count - actual_count;
             }
         }
+
+        let num_blanks = all_tiles
+            .iter()
+            .filter(|t| *t == &Tile::Blank)
+            .count();
+        let is_correct = !any_over && (num_chars_missing <= num_blanks);
 
         // Log out the outcome.
         info!(
@@ -546,7 +569,7 @@ speculate! {
                         human: false,
                         hand: Hand::<Tile>{
                             items: vec![
-                                Tile::A,
+                                Tile::Blank,
                                 Tile::C,
                                 Tile::T,
                             ],
@@ -583,6 +606,7 @@ speculate! {
             assert!(!game.is_correct(&ScrabrudoBet::from_word(&"ccatbo".into())));
 
             // A palafico word is detected as such.
+            // Note that this one does use the blank as an A.
             assert!(game.is_exactly_correct(&ScrabrudoBet::from_word(&"caboose".into())));
         }
     }

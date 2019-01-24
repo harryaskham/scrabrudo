@@ -7,7 +7,6 @@ use rand::Rng;
 use speculate::speculate;
 use std::cmp::Ord;
 
-// TODO: Extended alphabets, wildcards
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum Tile {
     A,
@@ -36,6 +35,7 @@ pub enum Tile {
     X,
     Y,
     Z,
+    Blank
 }
 
 impl Holdable for Tile {
@@ -105,14 +105,21 @@ impl Tile {
             Tile::X => 'x',
             Tile::Y => 'y',
             Tile::Z => 'z',
+            Tile::Blank => panic!("Shouldn't be asking for a blank as a char")
         }
     }
 
     pub fn as_usize(&self) -> usize {
+        if self == &Tile::Blank {
+            return 27
+        }
         (self.char() as u32 - 'a' as u32) as usize
     }
 
     pub fn from_usize(u: usize) -> Tile {
+        if u == 26 {
+            return Tile::Blank
+        }
         Tile::from_char((u as u8 + 'a' as u8) as char)
     }
 
@@ -144,6 +151,7 @@ impl Tile {
             Tile::X,
             Tile::Y,
             Tile::Z,
+            Tile::Blank
         ]
     }
 
@@ -175,6 +183,7 @@ impl Tile {
             Tile::X => 8,
             Tile::Y => 4,
             Tile::Z => 10,
+            Tile::Blank => 0,
         }
     }
 }
@@ -187,16 +196,18 @@ impl Tile {
 5 points: K ×1
 8 points: J ×1, X ×1
 10 points: Q ×1, Z ×1
+0 points: blank x2
 
 By hand, that's
-[9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1]
+[9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1, 2]
 */
 
 impl rand::distributions::Distribution<Tile> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Tile {
-        // TODO: This could be a lot more efficient. We compute the CDF every time.
+        // 
         let mut distribution: Vec<u32> = vec![
             9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1,
+            10  // Number of blanks - TODO: Modulate.
         ];
         for i in 1..distribution.len() {
             distribution[i] += distribution[i - 1]

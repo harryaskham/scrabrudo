@@ -48,6 +48,9 @@ fn main() {
     if args.len() >= 4 {
         human_indices.insert(args[3].parse::<usize>().unwrap());
     }
+    if args.len() >= 5 {
+        human_indices.insert(args[4].parse::<usize>().unwrap());
+    }
 
     // TODO: Helper to kill dupe.
     match mode.as_str() {
