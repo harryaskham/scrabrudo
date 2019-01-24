@@ -92,14 +92,22 @@ fn create_lookup(
     num_trials: u32,
 ) -> HashMap<String, Vec<f64>> {
     let word_counter = Arc::new(Mutex::new(0));
-    words
+    let expanded_words = words
         .par_iter()
         .flat_map(|w| {
             *word_counter.lock().unwrap() += 1;
             info! {"{} / {} words expanded", word_counter.lock().unwrap(), words.len()};
             all_sorted_substrings(w, max_num_items)
         })
+        .collect::<HashSet<String>>();
+    info!("Created {} word expansions", expanded_words.len());
+
+    let prob_counter = Arc::new(Mutex::new(0));
+    expanded_words
+        .par_iter()
         .map(|s| {
+            *prob_counter.lock().unwrap() += 1;
+            info! {"{} / {} probs calculated", prob_counter.lock().unwrap(), expanded_words.len()};
             (s.clone(), probabilities(&s, max_num_items, num_trials))
         })
         .collect::<HashMap<String, Vec<f64>>>()
