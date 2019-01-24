@@ -427,19 +427,23 @@ impl ScrabrudoBet {
     pub fn as_word(&self) -> String {
         self.tiles.iter().map(|t| t.char()).collect()
     }
+
+    pub fn score(&self) -> u32 {
+        self.tiles.iter().map(|t| t.score()).sum()
+    }
 }
 
 impl fmt::Display for ScrabrudoBet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "'{}'", self.as_word())
+        write!(f, "'{}' ({})", self.as_word(), self.score())
     }
 }
 
 impl Ord for ScrabrudoBet {
     fn cmp(&self, other: &ScrabrudoBet) -> Ordering {
-        // TODO: This implements simple length-ordering - a raise must be longer, in other words.
-        // Experiment with other scoring systems.
-        self.tiles.len().cmp(&other.tiles.len())
+        // Disabling length-raising in favour of score raising.
+        // self.tiles.len().cmp(&other.tiles.len())
+        self.score().cmp(&other.score())
     }
 }
 
@@ -501,6 +505,7 @@ speculate! {
         */
 
         it "orders bets correctly" {
+            // These happen to be correct whether score or length ordered.
             let bets = vec![
                 ScrabrudoBet::from_word(&"a".into()),
                 ScrabrudoBet::from_word(&"at".into()),
@@ -515,19 +520,6 @@ speculate! {
                 assert_eq!(bets[i], bets[i].clone());
                 assert!(bets[i] < bets[i + 1]);
                 assert!(bets[i + 1] > bets[i]);
-            }
-        }
-
-        it "generates all above" {
-            let original = ScrabrudoBet::from_word(&"cat".into());
-            let bets = original.all_above(&GameState{
-                total_num_items: 4,
-                num_items_per_player: vec![2, 2],
-            });
-            // This should give us all 4-letter words for now.
-            assert_eq!(3903, bets.len());
-            for bet in bets {
-                assert_eq!(4, bet.tiles.len());
             }
         }
 
