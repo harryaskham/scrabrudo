@@ -45,6 +45,10 @@ pub trait Bet: Ord + Clone + fmt::Display {
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self>;
 
+    /// Whether or not this bet is correct given the items on the table.
+    /// If 'exact' is true then it makes a Palafico evaluation.
+    fn is_correct(&self, all_items: &Vec<Self::V>, exact: bool) -> bool;
+
     /// Get the probability of this bet being correct.
     fn prob(
         &self,
@@ -164,6 +168,10 @@ impl Bet for PerudoBet {
             .filter(|b| b.value != Die::One)
             .collect::<Vec<Box<Self>>>();
         Self::best_bet_from(state, player, bets)
+    }
+
+    fn is_correct(&self, all_items: &Vec<Self::V>, exact: bool) -> bool {
+        unimplemented!("This is currently handed in game.rs");    
     }
 
     fn palafico_prob(
@@ -294,6 +302,54 @@ impl Bet for ScrabrudoBet {
         Self::best_bet_from(state, player, bets)
     }
 
+    fn is_correct(&self, all_items: &Vec<Self::V>, exact: bool) -> bool {
+        if !SCRABBLE_DICT.has_word(&self.as_word()) {
+            return false;
+        }
+
+        // We need to extract the blanks here and kind of "cout them down" as we find the bet is
+        // missing letters. If we run out of blanks, we lose.
+        let tile_counts = count_map(&self.tiles);
+        let all_tile_counts = count_map(&all_items);
+        let num_blanks = all_items
+            .iter()
+            .filter(|t| *t == &Tile::Blank)
+            .count();
+
+        if exact {
+            // Palafico pathway
+            let mut num_chars_missing = 0;
+            let mut any_over = false;
+            for (tile, count) in &tile_counts {
+                let actual_count = match all_tile_counts.get(tile) {
+                    Some(c) => *c,
+                    None => 0,
+                };
+                if actual_count > *count {
+                    any_over = true;
+                    break;
+                } else if actual_count < *count {
+                    num_chars_missing += *count - actual_count;
+                }
+            }
+
+            !any_over && (num_chars_missing <= num_blanks)
+        } else {
+            // Perudo pathway
+            let mut num_chars_missing = 0;
+            for (tile, count) in &tile_counts {
+                let actual_count = match all_tile_counts.get(tile) {
+                    Some(c) => *c,
+                    None => 0,
+                };
+                if actual_count < *count {
+                    num_chars_missing += *count - actual_count;
+                }
+            }
+            num_chars_missing <= num_blanks
+        }
+    }
+
     fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
         // Rough algorithm for calculating probability of bet correctness:
         // for e.g. target = [A, T, T, A, C, K], n = 20, hand = [X, X, A, K]
@@ -376,43 +432,23 @@ pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
     count_map
 }
 
-/// Runs a crappy MC simulation to get rough probability of success.
-/// TODO: If keeping this approach, can multi-thread it easily.
+/// Runs MC simulation to get rough probability of success.
 /// TODO: Move to a monte_carlo module.
-pub fn monte_carlo(n: u32, tiles: &Vec<Tile>, num_trials: u32, exact: bool) -> f64 {
+pub fn monte_carlo(n: u32, word: &String, num_trials: u32, exact: bool) -> f64 {
     if n == 0 {
         // Cannot find a word in no tiles.
         return 0.0;
     }
 
+    let bet = ScrabrudoBet::from_word(word);
+
     let mut success = 0;
     let mut failure = 0;
-    let tile_counts = count_map(tiles);
     for _ in 0..num_trials {
-        let all_tiles = Hand::<Tile>::new(n).items;
-        let all_tile_counts = count_map(&all_tiles);
-        let mut okay = true;
-        for (tile, count) in &tile_counts {
-            let actual_count = match all_tile_counts.get(tile) {
-                Some(c) => *c,
-                None => 0,
-            };
-            if exact {
-                if actual_count != *count {
-                    okay = false;
-                    break;
-                }
-            } else {
-                if actual_count < *count {
-                    okay = false;
-                    break;
-                }
-            }
-        }
-        if okay {
+        if bet.is_correct(&bet.tiles, false) {
             success += 1;
         } else {
-            failure += 1
+            failure += 1;
         }
     }
 
@@ -673,7 +709,7 @@ speculate! {
 
     describe "monte carlo" {
         it "approximates the chance of a bet" {
-            let p = monte_carlo(20, &vec![Tile::C, Tile::A, Tile::T], 10000, false);
+            let p = monte_carlo(20, &"cat".into(), 10000, false);
             assert!(p > 0.10);
             assert!(p < 0.30);
         }

@@ -113,6 +113,16 @@ pub trait Game: Sized + fmt::Display {
         self.num_items_per_player().iter().sum()
     }
 
+    /// Gets a vec of the actual items on the table.
+    fn all_items(&self) -> Vec<Self::V> {
+        self.players()
+            .iter()
+            .map(|p| p.items())
+            .flatten()
+            .map(|i| i.clone())
+            .collect::<Vec<Self::V>>()
+    }
+
     /// Gets a cloned refreshed view on the players.
     fn refreshed_players(&self) -> Vec<Box<dyn Player<B = Self::B, V = Self::V>>> {
         self.players().iter().map(|p| p.refresh()).collect()
@@ -430,40 +440,8 @@ impl Game for ScrabrudoGame {
     }
 
     fn is_correct(&self, bet: &ScrabrudoBet) -> bool {
-        // A bet is correct if it's in the dictionary and it can be made from the tiles around the
-        // table.
-        if !SCRABBLE_DICT.has_word(&bet.as_word()) {
-            info!("Spurious - we reject the bet because its not in-dict - should be checkignn all aangrams");
-            return false;
-        }
-
-        // We need to extract the blanks here and kind of "cout them down" as we find the bet is
-        // missing letters. If we run out of blanks, we lose.
-        
-        let all_tiles = (&self.players)
-            .iter()
-            .map(|p| p.items())
-            .flatten()
-            .map(|t| t.clone())
-            .collect::<Vec<Tile>>();
-        let tile_counts = count_map(&bet.tiles);
-        let all_tile_counts = count_map(&all_tiles);
-        let mut num_chars_missing = 0;
-        for (tile, count) in &tile_counts {
-            let actual_count = match all_tile_counts.get(tile) {
-                Some(c) => *c,
-                None => 0,
-            };
-            if actual_count < *count {
-                num_chars_missing += *count - actual_count;
-            }
-        }
-
-        let num_blanks = all_tiles
-            .iter()
-            .filter(|t| *t == &Tile::Blank)
-            .count();
-        let is_correct = num_chars_missing <= num_blanks;
+        let all_tiles = self.all_items();
+        let is_correct = bet.is_correct(&all_tiles, false);
 
         // Log out the outcome.
         info!(
@@ -480,39 +458,8 @@ impl Game for ScrabrudoGame {
     // Lots of duplication here - subtle differences inside.
     // We say it's exact if no letter goes over, and if we need to use blanks, we use all of them.
     fn is_exactly_correct(&self, bet: &ScrabrudoBet) -> bool {
-        if !SCRABBLE_DICT.has_word(&bet.as_word()) {
-            info!("Spurious - we reject the bet because its not in-dict - should be checking all aangrams");
-            return false;
-        }
-
-        let all_tiles = (&self.players)
-            .iter()
-            .map(|p| p.items())
-            .flatten()
-            .map(|t| t.clone())
-            .collect::<Vec<Tile>>();
-        let tile_counts = count_map(&bet.tiles);
-        let all_tile_counts = count_map(&all_tiles);
-        let mut num_chars_missing = 0;
-        let mut any_over = false;
-        for (tile, count) in &tile_counts {
-            let actual_count = match all_tile_counts.get(tile) {
-                Some(c) => *c,
-                None => 0,
-            };
-            if actual_count > *count {
-                any_over = true;
-                break;
-            } else if actual_count < *count {
-                num_chars_missing += *count - actual_count;
-            }
-        }
-
-        let num_blanks = all_tiles
-            .iter()
-            .filter(|t| *t == &Tile::Blank)
-            .count();
-        let is_correct = !any_over && (num_chars_missing <= num_blanks);
+        let all_tiles = self.all_items();
+        let is_correct = bet.is_correct(&all_tiles, true);
 
         // Log out the outcome.
         info!(

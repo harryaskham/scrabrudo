@@ -115,7 +115,7 @@ fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> 
         .map(|n| {
             monte_carlo(
                 n as u32,
-                &ScrabrudoBet::from_word(s).tiles,
+                s,
                 num_trials,
                 false,
             )
