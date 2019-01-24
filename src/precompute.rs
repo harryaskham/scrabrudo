@@ -37,6 +37,28 @@ use std::env;
 use std::fs::File;
 use rayon::prelude::*;
 
+// TODO: I stole this code - find a library or something.
+pub fn powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
+    let mut v: Vec<Vec<T>> = Vec::new();
+
+    for mask in 0..(1 << slice.len()) {
+        let mut ss: Vec<T> = vec![];
+        let mut bitset = mask;
+        while bitset > 0 {
+            // isolate the rightmost bit to select one item
+            let rightmost: u64 = bitset & !(bitset - 1);
+            // turn the isolated bit into an array index
+            let idx = rightmost.trailing_zeros();
+            let item = (*slice.get(idx as usize).unwrap()).clone();
+            ss.push(item);
+            // zero the trailing bit
+            bitset &= bitset - 1;
+        }
+        v.push(ss);
+    }
+    v
+}
+
 /// Sorts a word by its chars.
 fn sort_word(word: &String) -> String {
     let mut chars = word.chars().collect::<Vec<char>>();
@@ -49,31 +71,29 @@ fn sort_word(word: &String) -> String {
 /// Each word will be sorted to avoid further duplicates:
 /// e.g. AEHT, AET, EHT, AH, HT, EH, AT, AE, ET, H, A, T, E
 ///
-/// This is equivalent to the powerset of the characters of the word minus the empty word, sorted.
+/// This is equivalent to the powerset of the characters of the word minus the empty word, sorted,
+/// and filtered down to only those things that fit on the table.
 ///
 /// TODO: This is excruciatingly slow for longer words
 fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
-    if word.len() == 1 {
-        return hashset! { sort_word(word) };
-    }
 
-    let mut substrings = hashset! { sort_word(word) };
+    // Get the word as a char-slice
+    let chars = &(word.chars().collect::<Vec<char>>())[..];
 
-    for i in 0..word.len() {
-        let mut word_without = word.clone();
-        word_without.remove(i);
-        let substrings_without = all_sorted_substrings(&word_without, max_length);
-        substrings.extend(substrings_without);
-    }
-
-    substrings.into_iter().filter(|s| s.len() <= max_length).collect()
+    // Now find all subsets below a certain length internally sorted.
+    powerset(chars)
+        .into_iter()
+        .map(|cs| cs.into_iter().collect::<String>())
+        .filter(|w| w.len() > 0 && w.len() <= max_length)
+        .map(|w| sort_word(&w))
+        .collect::<HashSet<String>>()
 }
 
 /// Generates all possible valid candidate strings.
 /// This is all words plus all non-contiguous substrings of those words.
 fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> HashSet<String> {
-    // TODO: Support words of more than 5 in length.
-    let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 5).collect();
+    // TODO: Support words of more than 8 in length.
+    //let words: HashSet<String> = words.clone().into_iter().filter(|w| w.len() <= 8).collect();
 
     info!("Generating all candidate strings...");
     let counter = Arc::new(Mutex::new(0));

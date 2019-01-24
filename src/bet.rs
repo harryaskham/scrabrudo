@@ -66,6 +66,8 @@ pub trait Bet: Ord + Clone + fmt::Display {
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
     /// This will always just be the negation of P(bet).
+    /// Note that in some cases this is always going to win out - instead we need to take history
+    /// into account.
     fn perudo_prob(
         &self,
         state: &GameState,
@@ -345,8 +347,6 @@ impl Bet for ScrabrudoBet {
         let substring = tiles_to_find.into_iter().map(|t| t.char()).collect::<String>();
         if !SCRABBLE_DICT.lookup.contains_key(&substring) {
             0.0
-        } else if substring.len() > 5 {
-            0.0 // TODO: REMOVE THIS ONCE WE HAVE A FULL LOOKUP TABLE
         } else {
             SCRABBLE_DICT.lookup.get(&substring).unwrap()[num_tiles]
         }
