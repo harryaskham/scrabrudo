@@ -448,10 +448,7 @@ pub fn monte_carlo(n: u32, word: &String, num_trials: u32) -> f64 {
     for i in 0..num_trials {
         let all_tiles = Hand::<Tile>::new(n).items;
         if bet.is_correct(&all_tiles, false) {
-            info!("success: {} in {:?}", bet, all_tiles);
             success += 1;
-        } else {
-            info!("fail: {} in {:?}", bet, all_tiles);
         }
     }
 
