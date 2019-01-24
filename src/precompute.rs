@@ -205,9 +205,11 @@ speculate! {
 
     describe "lookup generation" {
         it "creates a small lookup table" {
-            let lookup = create_lookup(&hashset!{ "a".into() }, 5, 10000);
-            assert_eq!(1, lookup.len());
+            let lookup = create_lookup(&hashset!{ "an".into() }, 5, 10000);
+            assert_eq!(3, lookup.len());
             assert!(lookup.contains_key("a".into()));
+            assert!(lookup.contains_key("n".into()));
+            assert!(lookup.contains_key("an".into()));
 
             let probs = lookup.get("a".into()).unwrap();
 

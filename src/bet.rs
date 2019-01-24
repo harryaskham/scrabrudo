@@ -303,9 +303,9 @@ impl Bet for ScrabrudoBet {
     }
 
     fn is_correct(&self, all_items: &Vec<Self::V>, exact: bool) -> bool {
-        if !SCRABBLE_DICT.has_word(&self.as_word()) {
-            return false;
-        }
+        // We cannot check against the fucking dictionary here!
+        // If we do we omit all the substrinngs that aren't in the dict.
+        // This simply says: can you make this bet with the tiles.
 
         // We need to extract the blanks here and kind of "cout them down" as we find the bet is
         // missing letters. If we run out of blanks, we lose.
@@ -724,7 +724,10 @@ speculate! {
 
     describe "monte carlo" {
         it "approximates the chance of a bet" {
-            monte_carlo(20, &"cat".into(), 10000);
+            let p = monte_carlo(20, &"cat".into(), 10000);
+
+            // We should definitely find it a bunch of times in 20 die.
+            assert!(p > 0.0);
         }
     }
 }
