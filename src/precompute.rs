@@ -80,31 +80,25 @@ fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
         .map(|cs| cs.into_iter().collect::<String>())
         .filter(|w| w.len() > 0 && w.len() <= max_length)
         .map(|w| sort_word(&w))
-        .collect::<HashSet<String>>()
+        .collect()
 }
 
-/// Generates all possible valid candidate strings.
-/// This is all words plus all non-contiguous substrings of those words.
-fn generate_sorted_candidates(words: &HashSet<String>, max_length: usize) -> HashSet<String> {
-    info!("Generating all candidate strings...");
-    let counter = Arc::new(Mutex::new(0));
-    words.par_iter().map(|w| {
-        *counter.lock().unwrap() += 1;
-        info!{"{} / {} words expanded", counter.lock().unwrap(), words.len()}
-        all_sorted_substrings(&w, max_length)
-    }).flatten().collect()
-}
-
-/// Creates a lookup table from word substrings
+/// Creates the lookup in a single iteration.
+/// First we explode out via flat_map to all possible substrings, and then we map these to their
+/// Monte Carlo probabilities.
 fn create_lookup(words: &HashSet<String>, max_num_items: usize, num_trials: u32) -> HashMap<String, Vec<f64>> {
-    let candidates = generate_sorted_candidates(words, max_num_items);
-    info!("Computing {} probabilities for {} candidates, {} trials each", max_num_items + 1, candidates.len(), num_trials);
-    let counter = Arc::new(Mutex::new(0));
-    candidates
+    let word_counter = Arc::new(Mutex::new(0));
+    let entry_counter = Arc::new(Mutex::new(0));
+    words
         .par_iter()
+        .flat_map(|w| {
+            *word_counter.lock().unwrap() += 1;
+            info!{"{} / {} words expanded", word_counter.lock().unwrap(), words.len()};
+            all_sorted_substrings(w, max_num_items)
+        })
         .map(|s| {
-            *counter.lock().unwrap() += 1;
-            info!{"{} / {} substrings evaluated", counter.lock().unwrap(), candidates.len()};
+            *entry_counter.lock().unwrap() += 1;
+            info!{"{} entries computed", entry_counter.lock().unwrap()};
             (s.clone(), probabilities(&s, max_num_items, num_trials))
         })
         .collect::<HashMap<String, Vec<f64>>>()
