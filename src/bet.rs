@@ -24,10 +24,10 @@ pub trait Bet: Ord + Clone + fmt::Display {
     type V: Holdable;
 
     /// Return all possible bets given the current game state.
-    fn all(state: &GameState) -> Vec<Box<Self>>;
+    fn all(state: &GameState<Self>) -> Vec<Box<Self>>;
 
     /// Get all bets above this bet.
-    fn all_above(&self, state: &GameState) -> Vec<Box<Self>> {
+    fn all_above(&self, state: &GameState<Self>) -> Vec<Box<Self>> {
         // Generate all bets and filter down to only those which are greater than the one given.
         Self::all(state)
             .into_iter()
@@ -41,7 +41,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// Pick the best bet from those available for a first go.
     /// TODO: Better than random choice from equally likely bets.
     fn best_first_bet(
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self>;
 
@@ -52,7 +52,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// Get the probability of this bet being correct.
     fn prob(
         &self,
-        state: &GameState,
+        state: &GameState<Self>,
         variant: ProbVariant,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
@@ -66,7 +66,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// Get the probability of the bet being correct.
     /// This is akin to the mass of this bet, plus all those with the same value and higher
     /// quantity.
-    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64;
+    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64;
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
     /// This will always just be the negation of P(bet).
@@ -74,7 +74,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// into account.
     fn perudo_prob(
         &self,
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         1.0 - self.bet_prob(state, player)
@@ -84,13 +84,13 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// concerned.
     fn palafico_prob(
         &self,
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64;
 
     /// Gets all bets ordered by probability from the perspective of the given player.
     fn ordered_bets(
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Vec<Box<Self>> {
         let mut bets = Self::all(state)
@@ -109,7 +109,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
 
     /// Return one of the highest probability bets from those given.
     fn best_bet_from(
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
         bets: Vec<Box<Self>>,
     ) -> Box<Self> {
@@ -140,7 +140,7 @@ pub struct PerudoBet {
 impl Bet for PerudoBet {
     type V = Die;
 
-    fn all(state: &GameState) -> Vec<Box<Self>> {
+    fn all(state: &GameState<Self>) -> Vec<Box<Self>> {
         iproduct!(Die::all().into_iter(), 1..=state.total_num_items)
             .map(|(value, quantity)| {
                 Box::new(PerudoBet {
@@ -160,7 +160,7 @@ impl Bet for PerudoBet {
 
     /// TODO: Too much cloning here.
     fn best_first_bet(
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self> {
         let bets = Self::ordered_bets(state, player.cloned())
@@ -176,7 +176,7 @@ impl Bet for PerudoBet {
 
     fn palafico_prob(
         &self,
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -196,7 +196,7 @@ impl Bet for PerudoBet {
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
-    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -280,7 +280,7 @@ pub struct ScrabrudoBet {
 impl Bet for ScrabrudoBet {
     type V = Tile;
 
-    fn all(state: &GameState) -> Vec<Box<Self>> {
+    fn all(state: &GameState<Self>) -> Vec<Box<Self>> {
         SCRABBLE_DICT
             .words_with_max_length(state.total_num_items)
             .into_iter()
@@ -293,7 +293,7 @@ impl Bet for ScrabrudoBet {
     }
 
     fn best_first_bet(
-        state: &GameState,
+        state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Box<Self> {
         // TODO: If we make a distinction for the first bet here then we should incorporate it
@@ -350,7 +350,7 @@ impl Bet for ScrabrudoBet {
         }
     }
 
-    fn bet_prob(&self, state: &GameState, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
         // Rough algorithm for calculating probability of bet correctness:
         // for e.g. target = [A, T, T, A, C, K], n = 20, hand = [X, X, A, K]
         // Take the difference of the target and the hand. This leaves the letters we seek from the
@@ -415,7 +415,7 @@ impl Bet for ScrabrudoBet {
 
     fn palafico_prob(
         &self,
-        _state: &GameState,
+        _state: &GameState<Self>,
         _player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> f64 {
         // TODO: Not quite ready for full Palafico yet, we have the exact-find prob but we also
@@ -521,9 +521,10 @@ speculate! {
         }
 
         it "can load all bets for a certain number of tiles" {
-            let bets = ScrabrudoBet::all(&GameState{
+            let bets = ScrabrudoBet::all(&GameState::<ScrabrudoBet>{
                 total_num_items: 4,
-                num_items_per_player: vec![4]
+                num_items_per_player: vec![4],
+                history: vec![],
             });
             assert_eq!(4971, bets.len());
             for bet in bets {
@@ -533,7 +534,7 @@ speculate! {
 
         /* Disabled due to slow execution.
         it "can load all bets for a large number of tiles" {
-            let bets = ScrabrudoBet::all(&GameState{
+            let bets = ScrabrudoBet::all(&GameState<Self>{
                 total_num_items: 30,
                 num_items_per_player: vec![30]
             });
@@ -671,9 +672,10 @@ speculate! {
                     bet(Die::Six, 1),
                     bet(Die::Six, 2),
                 ],
-                original.all_above(&GameState{
+                original.all_above(&GameState::<PerudoBet>{
                     total_num_items: 2,
                     num_items_per_player: vec![1, 1],
+                    history: vec![],
                 }));
         }
 
@@ -699,9 +701,10 @@ speculate! {
                 },
             });
 
-            let state = &GameState{
+            let state = &GameState::<PerudoBet>{
                 total_num_items: 6,
                 num_items_per_player: vec![5, 1],
+                history: vec![],
             };
 
             // Bets on Ones, given one in the hand.

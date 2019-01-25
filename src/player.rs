@@ -87,7 +87,7 @@ pub trait Player: fmt::Debug + fmt::Display {
     }
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState, bet: &Self::B) -> TurnOutcome<Self::B> {
+    fn best_outcome_above(&self, state: &GameState<Self::B>, bet: &Self::B) -> TurnOutcome<Self::B> {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
             (
@@ -124,7 +124,7 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Given the game state, return this player's chosen outcome.
     fn play(
         &self,
-        state: &GameState,
+        state: &GameState<Self::B>,
         current_outcome: &TurnOutcome<Self::B>,
     ) -> TurnOutcome<Self::B> {
         if self.human() {
@@ -140,7 +140,7 @@ pub trait Player: fmt::Debug + fmt::Display {
     /// Control logic for having a human play the game.
     fn human_play(
         &self,
-        state: &GameState,
+        state: &GameState<Self::B>,
         current_outcome: &TurnOutcome<Self::B>,
     ) -> TurnOutcome<Self::B>;
 }
@@ -238,7 +238,7 @@ impl Player for PerudoPlayer {
 
     fn human_play(
         &self,
-        state: &GameState,
+        state: &GameState<Self::B>,
         current_outcome: &TurnOutcome<Self::B>,
     ) -> TurnOutcome<Self::B> {
         loop {
@@ -394,7 +394,7 @@ impl Player for ScrabrudoPlayer {
 
     fn human_play(
         &self,
-        state: &GameState,
+        state: &GameState<Self::B>,
         current_outcome: &TurnOutcome<Self::B>,
     ) -> TurnOutcome<Self::B> {
         loop {
@@ -477,9 +477,10 @@ speculate! {
                     ],
                 },
             };
-            let state = &GameState {
+            let state = &GameState::<PerudoBet> {
                 total_num_items: 5,
                 num_items_per_player: vec![5],
+                history: vec![],
             };
             let opponent_bet = &PerudoBet {
                 quantity: 4,
@@ -502,9 +503,10 @@ speculate! {
                     ],
                 },
             };
-            let state = &GameState {
+            let state = &GameState::<PerudoBet> {
                 total_num_items: 2,
                 num_items_per_player: vec![1, 1],
+                history: vec![],
             };
             let opponent_bet = &PerudoBet {
                 quantity: 1,
@@ -529,9 +531,10 @@ speculate! {
                     ],
                 },
             };
-            let state = &GameState {
+            let state = &GameState::<ScrabrudoBet> {
                 total_num_items: 5,
                 num_items_per_player: vec![4, 1],
+                history: vec![],
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
