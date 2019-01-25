@@ -87,7 +87,11 @@ pub trait Player: fmt::Debug + fmt::Display {
     }
 
     /// Gets the best turn outcome above a certain bet.
-    fn best_outcome_above(&self, state: &GameState<Self::B>, bet: &Self::B) -> TurnOutcome<Self::B> {
+    fn best_outcome_above(
+        &self,
+        state: &GameState<Self::B>,
+        bet: &Self::B,
+    ) -> TurnOutcome<Self::B> {
         // Create pairs of all possible outcomes sorted by probability.
         let mut outcomes = vec![
             (
@@ -423,7 +427,11 @@ impl Player for ScrabrudoPlayer {
             }
             if &line[0..1] == "?" {
                 let query = &line[1..];
-                info!("'{}' scores {}", query, ScrabrudoBet::from_word(&query.into()).score());
+                info!(
+                    "'{}' scores {}",
+                    query,
+                    ScrabrudoBet::from_word(&query.into()).score()
+                );
                 continue;
             }
 

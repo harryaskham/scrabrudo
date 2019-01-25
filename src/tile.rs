@@ -35,7 +35,7 @@ pub enum Tile {
     X,
     Y,
     Z,
-    Blank
+    Blank,
 }
 
 impl Holdable for Tile {
@@ -105,20 +105,20 @@ impl Tile {
             Tile::X => 'x',
             Tile::Y => 'y',
             Tile::Z => 'z',
-            Tile::Blank => panic!("Shouldn't be asking for a blank as a char")
+            Tile::Blank => panic!("Shouldn't be asking for a blank as a char"),
         }
     }
 
     pub fn as_usize(&self) -> usize {
         if self == &Tile::Blank {
-            return 27
+            return 27;
         }
         (self.char() as u32 - 'a' as u32) as usize
     }
 
     pub fn from_usize(u: usize) -> Tile {
         if u == 26 {
-            return Tile::Blank
+            return Tile::Blank;
         }
         Tile::from_char((u as u8 + 'a' as u8) as char)
     }
@@ -151,7 +151,7 @@ impl Tile {
             Tile::X,
             Tile::Y,
             Tile::Z,
-            Tile::Blank
+            Tile::Blank,
         ]
     }
 
@@ -204,10 +204,10 @@ By hand, that's
 
 impl rand::distributions::Distribution<Tile> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Tile {
-        // 
+        //
         let mut distribution: Vec<u32> = vec![
             9, 2, 2, 4, 12, 2, 3, 2, 9, 1, 1, 4, 2, 6, 8, 2, 1, 6, 4, 6, 4, 2, 2, 1, 2, 1,
-            10  // Number of blanks - TODO: Modulate.
+            10, // Number of blanks - TODO: Modulate.
         ];
         for i in 1..distribution.len() {
             distribution[i] += distribution[i - 1]

@@ -22,7 +22,8 @@ pub enum TurnOutcome<B: Bet> {
     Win,
 }
 
-#[derive(Clone)]
+// TODO: This needs to live in Bet.
+#[derive(Clone, Debug, PartialEq)]
 pub struct HistoricalBet<B: Bet> {
     /// The player index making the bet.
     pub index: usize,
@@ -528,83 +529,95 @@ speculate! {
         testing::set_up();
     }
 
-    describe "a perudo game" {
-        /* TODO: Re-enable. Flaky.
-        it "runs to completion" {
-            let mut game = PerudoGame::new(6, 5, HashSet::new());
-            loop {
-                game = game.run_turn();
-                match game.current_outcome {
-                    TurnOutcome::Win => return,
-                    _ => continue,
-                }
-            }
-        }
-        */
+    it "constrains bet correctness including palafico" {
+        let game = ScrabrudoGame {
+            players: vec![
+                Box::new(ScrabrudoPlayer {
+                    id: 0,
+                    human: false,
+                    hand: Hand::<Tile>{
+                        items: vec![
+                            Tile::Blank,
+                            Tile::C,
+                            Tile::T,
+                        ],
+                    },
+                }),
+                Box::new(ScrabrudoPlayer {
+                    id: 1,
+                    human: false,
+                    hand: Hand::<Tile>{
+                        items: vec![
+                            Tile::B,
+                            Tile::O,
+                            Tile::O,
+                            Tile::T,
+                            Tile::S,
+                            Tile::E,
+                        ],
+                    },
+                })
+            ],
+            current_index: 0,
+            current_outcome: TurnOutcome::First,
+            history: vec![],
+        };
+
+        // Cat is there, but has dupes
+        assert!(game.is_correct(&ScrabrudoBet::from_word(&"cat".into())));
+        assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"cat".into())));
+
+        // Same with boot.
+        assert!(game.is_correct(&ScrabrudoBet::from_word(&"boot".into())));
+        assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"boot".into())));
+
+        // Nonsense words are not correct.
+        assert!(!game.is_correct(&ScrabrudoBet::from_word(&"ccatbo".into())));
+
+        // A palafico word is detected as such.
+        // Note that this one does use the blank as an A.
+        assert!(game.is_exactly_correct(&ScrabrudoBet::from_word(&"caboose".into())));
     }
 
-    describe "a scrabrudo game" {
-        /* TODO: Re-enable. Flaky.
-        it "runs to completion" {
-            let mut game = ScrabrudoGame::new(2, 2, HashSet::new());
-            loop {
-                game = game.run_turn();
-                match game.current_outcome {
-                    TurnOutcome::Win => return,
-                    _ => continue,
-                }
+    it "records bets" {
+        let mut game = ScrabrudoGame {
+            players: vec![
+                Box::new(ScrabrudoPlayer {
+                    id: 0,
+                    human: false,
+                    hand: Hand::<Tile>{
+                        items: vec![
+                            Tile::T,
+                            Tile::O,
+                        ],
+                    },
+                }),
+                Box::new(ScrabrudoPlayer {
+                    id: 1,
+                    human: false,
+                    hand: Hand::<Tile>{
+                        items: vec![
+                            Tile::O,
+                        ],
+                    },
+                })
+            ],
+            current_index: 0,
+            current_outcome: TurnOutcome::First,
+            history: vec![],
+        };
+        let next_game = game.run_turn();
+
+        // The first guy is inevitably gonna claim 'to'
+
+        // Fuck me. This burnt me out. But from a transatlantic flight at like 4am here I am and
+        // yes obviously the best is based on the prior, and it's nnatural to posit an expectation 
+        // solely off the back of it. That's this.
+        assert_eq!(next_game.history, vec![
+            HistoricalBet {
+               index: 0,
+               bet: ScrabrudoBet::from_word(&"to".into())
             }
-        }
-        */
-
-        it "constrains bet correctness including palafico" {
-            let game = ScrabrudoGame {
-                players: vec![
-                    Box::new(ScrabrudoPlayer {
-                        id: 0,
-                        human: false,
-                        hand: Hand::<Tile>{
-                            items: vec![
-                                Tile::Blank,
-                                Tile::C,
-                                Tile::T,
-                            ],
-                        },
-                    }),
-                    Box::new(ScrabrudoPlayer {
-                        id: 1,
-                        human: false,
-                        hand: Hand::<Tile>{
-                            items: vec![
-                                Tile::B,
-                                Tile::O,
-                                Tile::O,
-                                Tile::T,
-                                Tile::S,
-                                Tile::E,
-                            ],
-                        },
-                    })
-                ],
-                current_index: 0,
-                current_outcome: TurnOutcome::First,
-                history: vec![],
-            };
-
-            // Cat is there, but has dupes
-            assert!(game.is_correct(&ScrabrudoBet::from_word(&"cat".into())));
-            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"cat".into())));
-
-            // Same with boot.
-            assert!(game.is_correct(&ScrabrudoBet::from_word(&"boot".into())));
-            assert!(!game.is_exactly_correct(&ScrabrudoBet::from_word(&"boot".into())));
-
-            // Nonsense words are not correct.
-            assert!(!game.is_correct(&ScrabrudoBet::from_word(&"ccatbo".into())));
-
-            // A palafico word is detected as such.
-            // Note that this one does use the blank as an A.
-            assert!(game.is_exactly_correct(&ScrabrudoBet::from_word(&"caboose".into())));
-        }
+        ]);
     }
 }

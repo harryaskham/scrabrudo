@@ -66,7 +66,11 @@ pub trait Bet: Ord + Clone + fmt::Display {
     /// Get the probability of the bet being correct.
     /// This is akin to the mass of this bet, plus all those with the same value and higher
     /// quantity.
-    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64;
+    fn bet_prob(
+        &self,
+        state: &GameState<Self>,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64;
 
     /// Gets the probability that this bet is incorrect as far as the given player is concerned.
     /// This will always just be the negation of P(bet).
@@ -171,7 +175,7 @@ impl Bet for PerudoBet {
     }
 
     fn is_correct(&self, all_items: &Vec<Self::V>, exact: bool) -> bool {
-        unimplemented!("This is currently handed in game.rs");    
+        unimplemented!("This is currently handed in game.rs");
     }
 
     fn palafico_prob(
@@ -196,7 +200,11 @@ impl Bet for PerudoBet {
         Binomial::new(num_other_dice, trial_p).mass(self.quantity - guaranteed_quantity)
     }
 
-    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+    fn bet_prob(
+        &self,
+        state: &GameState<Self>,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
         // If we have the bet in-hand, then we're good; otherwise we only have to look for the diff
         // in the other probabilities.
         let guaranteed_quantity = player.num_logical_items(self.value.clone());
@@ -311,10 +319,7 @@ impl Bet for ScrabrudoBet {
         // missing letters. If we run out of blanks, we lose.
         let tile_counts = count_map(&self.tiles);
         let all_tile_counts = count_map(&all_items);
-        let num_blanks = all_items
-            .iter()
-            .filter(|t| *t == &Tile::Blank)
-            .count();
+        let num_blanks = all_items.iter().filter(|t| *t == &Tile::Blank).count();
 
         if exact {
             // Palafico pathway
@@ -350,7 +355,11 @@ impl Bet for ScrabrudoBet {
         }
     }
 
-    fn bet_prob(&self, state: &GameState<Self>, player: Box<dyn Player<V = Self::V, B = Self>>) -> f64 {
+    fn bet_prob(
+        &self,
+        state: &GameState<Self>,
+        player: Box<dyn Player<V = Self::V, B = Self>>,
+    ) -> f64 {
         // Rough algorithm for calculating probability of bet correctness:
         // for e.g. target = [A, T, T, A, C, K], n = 20, hand = [X, X, A, K]
         // Take the difference of the target and the hand. This leaves the letters we seek from the
@@ -406,8 +415,8 @@ impl Bet for ScrabrudoBet {
             .map(|t| t.char())
             .collect::<String>();
         if !SCRABBLE_DICT.lookup.contains_key(&substring) {
-            0.0  // If we somehow didn't compute this length yet then 0.0
-            // We can prob remove the above
+            0.0 // If we somehow didn't compute this length yet then 0.0
+                // We can prob remove the above
         } else {
             SCRABBLE_DICT.lookup.get(&substring).unwrap()[num_tiles]
         }
@@ -439,7 +448,7 @@ pub fn count_map(tiles: &Vec<Tile>) -> HashMap<&Tile, usize> {
 pub fn monte_carlo(n: u32, word: &String, num_trials: u32) -> f64 {
     if n == 0 {
         // Cannot find a word in no tiles.
-        return 0.0
+        return 0.0;
     }
 
     let bet = ScrabrudoBet::from_word(word);

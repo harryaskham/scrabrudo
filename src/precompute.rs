@@ -120,13 +120,7 @@ fn create_lookup(
 fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> {
     (0..=max_num_items)
         .into_iter()
-        .map(|n| {
-            monte_carlo(
-                n as u32,
-                s,
-                num_trials,
-            )
-        })
+        .map(|n| monte_carlo(n as u32, s, num_trials))
         .collect()
 }
 

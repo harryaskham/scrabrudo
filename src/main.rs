@@ -24,8 +24,8 @@ pub mod player;
 pub mod testing;
 pub mod tile;
 
-use crate::game::*;
 use crate::dict::*;
+use crate::game::*;
 
 use std::collections::HashSet;
 use std::env;
@@ -63,9 +63,12 @@ fn main() {
                     _ => continue,
                 }
             }
-        },
+        }
         "scrabrudo" => {
-            info!("Loaded Scrabble lookup: {} items", SCRABBLE_DICT.lookup.len());
+            info!(
+                "Loaded Scrabble lookup: {} items",
+                SCRABBLE_DICT.lookup.len()
+            );
             let mut game = ScrabrudoGame::new(num_players, 5, human_indices);
             loop {
                 game = game.run_turn();
