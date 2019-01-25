@@ -65,7 +65,7 @@ pub trait Game: Sized + fmt::Display {
                 human_indices.contains(&id),
             ));
         }
-        Self::new_with(players, 0, TurnOutcome::First)
+        Self::new_with(players, 0, TurnOutcome::First, vec![])
     }
 
     /// Creates a new instance with the given fields.
@@ -73,6 +73,7 @@ pub trait Game: Sized + fmt::Display {
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
+        history: Vec<HistoricalBet<Self::B>>,
     ) -> Self;
 
     /// Creates a new player.
@@ -102,6 +103,21 @@ pub trait Game: Sized + fmt::Display {
 
     /// Gets the betting history for this game.
     fn history(&self) -> Vec<HistoricalBet<Self::B>>;
+
+    /// Gets the current history with the current bet appended.
+    fn history_with_current(&self) -> Vec<HistoricalBet<Self::B>> {
+        let mut history = self.history();
+        match self.current_outcome() {
+            TurnOutcome::Bet(bet) => {
+                history.push(HistoricalBet {
+                   index: self.current_index(),
+                   bet: bet.clone(),
+                });
+                history
+            },
+            _ => vec![],  // If the last thing wasn't a bet, then we don't have any history to build on.
+        }
+    }
 
     /// Gets a state representation of the game.
     fn state(&self) -> GameState<Self::B> {
@@ -206,10 +222,10 @@ pub trait Game: Sized + fmt::Display {
             let current_index = (loser_index % players.len()) as usize;
 
             if players.len() > 1 {
-                return Self::new_with(players, current_index, TurnOutcome::First);
+                return Self::new_with(players, current_index, TurnOutcome::First, vec![]);
             } else {
                 info!("Player {} wins!", players[0].id());
-                return Self::new_with(players, 0, TurnOutcome::Win);
+                return Self::new_with(players, 0, TurnOutcome::Win, vec![]);
             }
         } else {
             // Refresh all players, loser loses an item.
@@ -220,7 +236,7 @@ pub trait Game: Sized + fmt::Display {
                 players[loser_index].num_items()
             );
             // Reset and prepare for the next turn.
-            return Self::new_with(players, loser_index, TurnOutcome::First);
+            return Self::new_with(players, loser_index, TurnOutcome::First, vec![]);
         }
     }
 
@@ -234,7 +250,7 @@ pub trait Game: Sized + fmt::Display {
             winner.id(),
             winner.num_items()
         );
-        Self::new_with(players, winner_index, TurnOutcome::First)
+        Self::new_with(players, winner_index, TurnOutcome::First, vec![])
     }
 
     /// Runs a turn and either finishes or sets up for the next turn, returning a full copy of
@@ -246,7 +262,6 @@ pub trait Game: Sized + fmt::Display {
         let player = &self.players()[self.current_index()];
         let current_outcome = player.play(&self.state(), &self.current_outcome());
 
-        // TODO: Include historic bets in the context given to the player.
         debug!("{}", self);
         match current_outcome {
             TurnOutcome::Bet(bet) => {
@@ -255,6 +270,7 @@ pub trait Game: Sized + fmt::Display {
                     self.cloned_players(),
                     (self.current_index() + 1) % self.players().len(),
                     TurnOutcome::Bet(bet.clone()),
+                    self.history_with_current(),
                 )
             }
             TurnOutcome::Perudo => {
@@ -342,12 +358,13 @@ impl Game for PerudoGame {
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
+        history: Vec<HistoricalBet<Self::B>>,
     ) -> Self {
         Self {
             players: players,
             current_index: current_index,
             current_outcome: current_outcome,
-            history: vec![], // TODO: THIS NEEDS COMPLETING
+            history: history,
         }
     }
 
@@ -452,18 +469,17 @@ impl Game for ScrabrudoGame {
         self.history.clone()
     }
 
-    // TODO:!!! NEED a decent API for an immutable game with an extra bet adding in.
-
     fn new_with(
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
+        history: Vec<HistoricalBet<Self::B>>,
     ) -> Self {
         Self {
             players: players,
             current_index: current_index,
             current_outcome: current_outcome,
-            history: vec![], // TODO: THIS NEEDS COMPLETING
+            history: history,
         }
     }
 
