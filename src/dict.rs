@@ -50,6 +50,8 @@ impl ScrabbleDict {
         info!("Loading lookup table...");
         // TODO: Predicate this on the number of dice around the table if we have bigger lookups.
         let f = match File::open("data/lookup_5_1000.bin") {
+        // TODO: This takes minutes to open now. Move to SSTable.
+        // let f = match File::open("data/lookup_10_100.bin") {
             Ok(file) => file,
             Err(e) => panic!("Couldn't open lookup: {:?}", e),
         };
