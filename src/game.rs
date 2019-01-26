@@ -103,21 +103,16 @@ pub trait Game: Sized + fmt::Display {
     fn is_exactly_correct(&self, bet: &Self::B) -> bool;
 
     /// Gets the betting history for this game.
-    fn history(&self) -> Vec<HistoricalBet<Self::B>>;
+    fn history(&self) -> &Vec<HistoricalBet<Self::B>>;
 
     /// Gets the current history with the current bet appended.
-    fn history_with_current(&self) -> Vec<HistoricalBet<Self::B>> {
-        let mut history = self.history();
-        match self.current_outcome() {
-            TurnOutcome::Bet(bet) => {
-                history.push(HistoricalBet {
-                   index: self.current_index(),
-                   bet: bet.clone(),
-                });
-                history
-            },
-            _ => vec![],  // If the last thing wasn't a bet, then we don't have any history to build on.
-        }
+    fn history_with_bet(&self, bet: &Self::B) -> Vec<HistoricalBet<Self::B>> {
+        let mut history = self.history().clone();
+        history.push(HistoricalBet {
+           index: self.current_index(),
+           bet: bet.clone(),
+        });
+        history
     }
 
     /// Gets a state representation of the game.
@@ -125,7 +120,7 @@ pub trait Game: Sized + fmt::Display {
         GameState {
             total_num_items: self.total_num_items(),
             num_items_per_player: self.num_items_per_player(),
-            history: self.history(),
+            history: self.history().clone(),
         }
     }
 
@@ -271,7 +266,7 @@ pub trait Game: Sized + fmt::Display {
                     self.cloned_players(),
                     (self.current_index() + 1) % self.players().len(),
                     TurnOutcome::Bet(bet.clone()),
-                    self.history_with_current(),
+                    self.history_with_bet(&bet),
                 )
             }
             TurnOutcome::Perudo => {
@@ -349,11 +344,9 @@ impl Game for PerudoGame {
         self.current_index
     }
 
-    fn history(&self) -> Vec<HistoricalBet<Self::B>> {
-        self.history.clone()
+    fn history(&self) -> &Vec<HistoricalBet<Self::B>> {
+        &self.history
     }
-
-    // TODO: As below, need a good immutable Game update with history.
 
     fn new_with(
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
@@ -466,8 +459,8 @@ impl Game for ScrabrudoGame {
         self.current_index
     }
 
-    fn history(&self) -> Vec<HistoricalBet<Self::B>> {
-        self.history.clone()
+    fn history(&self) -> &Vec<HistoricalBet<Self::B>> {
+        &self.history
     }
 
     fn new_with(
@@ -608,16 +601,7 @@ speculate! {
         };
         let next_game = game.run_turn();
 
-        // The first guy is inevitably gonna claim 'to'
-
-        // Fuck me. This burnt me out. But from a transatlantic flight at like 4am here I am and
-        // yes obviously the best is based on the prior, and it's nnatural to posit an expectation 
-        // solely off the back of it. That's this.
-        assert_eq!(next_game.history, vec![
-            HistoricalBet {
-               index: 0,
-               bet: ScrabrudoBet::from_word(&"to".into())
-            }
-        ]);
+        // Whatever the first bet is, there should be one item in the next round.
+        assert_eq!(1, next_game.history.len());
     }
 }
