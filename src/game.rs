@@ -573,7 +573,7 @@ speculate! {
     }
 
     it "records bets" {
-        let mut game = ScrabrudoGame {
+        let game = ScrabrudoGame {
             players: vec![
                 Box::new(ScrabrudoPlayer {
                     id: 0,
