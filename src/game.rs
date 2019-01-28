@@ -27,7 +27,7 @@ pub enum TurnOutcome<B: Bet> {
 pub struct HistoricalBet<B: Bet> {
     /// The player index making the bet.
     pub index: usize,
-    
+
     /// The bet that was made.
     pub bet: B,
 }
@@ -109,8 +109,8 @@ pub trait Game: Sized + fmt::Display {
     fn history_with_bet(&self, bet: &Self::B) -> Vec<HistoricalBet<Self::B>> {
         let mut history = self.history().clone();
         history.push(HistoricalBet {
-           index: self.current_index(),
-           bet: bet.clone(),
+            index: self.current_index(),
+            bet: bet.clone(),
         });
         history
     }
@@ -297,8 +297,7 @@ pub struct PerudoGame {
     pub players: Vec<Box<dyn Player<B = PerudoBet, V = Die>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome<PerudoBet>,
-    pub history: Vec<HistoricalBet<PerudoBet>>
-
+    pub history: Vec<HistoricalBet<PerudoBet>>,
 }
 
 impl fmt::Display for PerudoGame {
@@ -413,7 +412,7 @@ pub struct ScrabrudoGame {
     pub players: Vec<Box<dyn Player<B = ScrabrudoBet, V = Tile>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome<ScrabrudoBet>,
-    pub history: Vec<HistoricalBet<ScrabrudoBet>>
+    pub history: Vec<HistoricalBet<ScrabrudoBet>>,
 }
 
 impl fmt::Display for ScrabrudoGame {
