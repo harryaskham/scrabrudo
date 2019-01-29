@@ -490,9 +490,13 @@ impl fmt::Display for ScrabrudoBet {
 
 impl Ord for ScrabrudoBet {
     fn cmp(&self, other: &ScrabrudoBet) -> Ordering {
-        // Disabling length-raising in favour of score raising.
-        // self.tiles.len().cmp(&other.tiles.len())
-        self.score().cmp(&other.score())
+        if self.tiles.len() == other.tiles.len() {
+            // If the same length, lexicographic ordering wins.
+            self.as_word().cmp(&other.as_word())
+        } else {
+            // Otherwise the longer word wins.
+            self.tiles.len().cmp(&other.tiles.len())
+        }
     }
 }
 
