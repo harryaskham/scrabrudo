@@ -400,13 +400,32 @@ impl Bet for ScrabrudoBet {
             };
         }
 
+        // Get the number of tiles we have to search in.
+        let num_tiles = state.total_num_items - player.num_items();
+
+        // TODO: "Believe" a certain number of tiles here, potentially only from the bet of the
+        // next player to play.
+        // TODO: Plug in a strategy here - right now we believe everything the last person said.
+        let belief_tiles = match state.history.last() {
+            None => vec![],
+            Some(historical_bet) => historical_bet.bet.tiles.clone()
+        };
+
+        // Remove all the belief tiles from that which we have to find.
+        for tile in belief_tiles {
+            match tiles_to_find.binary_search(&tile) {
+                Ok(i) => {
+                    tiles_to_find.remove(i);
+                }
+                Err(_) => (),
+            };
+        }
+
         // If we have all the tiles, it's a guaranteed hit.
         if tiles_to_find.is_empty() {
             return 1.0;
         }
 
-        // Get the nunmber of tiles we have to search in.
-        let num_tiles = state.total_num_items - player.num_items();
 
         // Sort the tiles to find and turn into a word to match the lookup.
         tiles_to_find.sort_by(|a, b| a.char().cmp(&b.char()));
@@ -565,6 +584,7 @@ speculate! {
                 ScrabrudoBet::from_word(&"at".into()),
                 ScrabrudoBet::from_word(&"cat".into()),
                 ScrabrudoBet::from_word(&"chat".into()),
+                ScrabrudoBet::from_word(&"zhat".into()),
                 ScrabrudoBet::from_word(&"chart".into()),
                 ScrabrudoBet::from_word(&"chariot".into()),
                 ScrabrudoBet::from_word(&"chariots".into()),

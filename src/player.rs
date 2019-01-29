@@ -17,7 +17,6 @@ use std::fmt;
 use std::io;
 
 /// Common behaviour for players of any ruleset.
-/// TODO: Remove Perudo references from the common core.
 pub trait Player: fmt::Debug + fmt::Display {
     /// The type of thing this player holds.
     type V: Holdable;
