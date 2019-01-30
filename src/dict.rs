@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::sync::Mutex;
 
 pub struct ScrabbleDict {
     pub words: HashSet<String>,
@@ -10,20 +11,23 @@ pub struct ScrabbleDict {
 }
 
 lazy_static! {
-    // TODO: Change this for actual gameplay to use a Mutex and a mutable lazy init with the
-    // flag values.
-    pub static ref SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new(
-        "data/scrabble.txt",
-        "data/lookup_5_1000.bin"
-    );
+    pub static ref SCRABBLE_DICT: Mutex<ScrabbleDict> = Mutex::new(ScrabbleDict::new_empty());
 }
 
 impl ScrabbleDict {
-    pub fn new(dict_path: &str, lookup_path: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            words: Self::words(dict_path),
-            lookup: Self::lookup(lookup_path),
+            words: hashset! {},
+            lookup: hashmap! {},
         }
+    }
+
+    pub fn init_dict(&mut self, dict_path: &str) {
+        self.words = Self::words(dict_path);
+    }
+
+    pub fn init_lookup(&mut self, lookup_path: &str) {
+        self.lookup = Self::lookup(lookup_path);
     }
 
     /// A set of all words in the dictionary.
@@ -55,10 +59,7 @@ impl ScrabbleDict {
         info!("Loading lookup table...");
         let f = match File::open(lookup_path) {
             Ok(file) => file,
-            Err(e) => {
-                warn!("Couldn't open lookup: {:?}", e);
-                return hashmap!{};
-            }
+            Err(e) => panic!("Couldn't open dictionary: {:?}", e),
         };
         bincode::deserialize_from(f).unwrap()
     }

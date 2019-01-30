@@ -53,6 +53,12 @@ fn main() {
         matches.value_of("human_index").unwrap_or("0").parse::<usize>().unwrap()
     };
 
+    let dict_path = matches.value_of("dictionary_path").unwrap();
+    let lookup_path = matches.value_of("lookup_path").unwrap();
+
+    SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
+    SCRABBLE_DICT.lock().unwrap().init_lookup(lookup_path);
+
     // TODO: Helper to kill dupe.
     match mode {
         "perudo" => {
@@ -68,7 +74,7 @@ fn main() {
         "scrabrudo" => {
             info!(
                 "Loaded Scrabble lookup: {} items",
-                SCRABBLE_DICT.lookup.len()
+                SCRABBLE_DICT.lock().unwrap().lookup.len()
             );
             let mut game = ScrabrudoGame::new(num_players, 5, human_indices);
             loop {

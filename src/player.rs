@@ -440,7 +440,7 @@ impl Player for ScrabrudoPlayer {
 
             return match current_outcome {
                 TurnOutcome::First => {
-                    if !SCRABBLE_DICT.has_word(&line) {
+                    if !SCRABBLE_DICT.lock().unwrap().has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else {
@@ -448,7 +448,7 @@ impl Player for ScrabrudoPlayer {
                     }
                 }
                 TurnOutcome::Bet(current_bet) => {
-                    if !SCRABBLE_DICT.has_word(&line) {
+                    if !SCRABBLE_DICT.lock().unwrap().has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else if bet <= *current_bet {
