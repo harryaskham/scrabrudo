@@ -11,11 +11,11 @@ pub struct ScrabbleDict {
 }
 
 lazy_static! {
-    pub static ref SCRABBLE_DICT: Mutex<ScrabbleDict> = Mutex::new(ScrabbleDict::new_empty());
+    pub static ref SCRABBLE_DICT: Mutex<ScrabbleDict> = Mutex::new(ScrabbleDict::new());
 }
 
 impl ScrabbleDict {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             words: hashset! {},
             lookup: hashmap! {},

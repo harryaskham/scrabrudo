@@ -152,15 +152,14 @@ fn main() {
     let mode = matches.value_of("mode").unwrap_or("scrabrudo");
     let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
 
+
+    let dict_path = matches.value_of("dictionary_path").unwrap();
+    SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
+
     let num_tiles = matches.value_of("num_tiles").unwrap().parse::<usize>().unwrap();
     let num_trials = matches.value_of("num_trials").unwrap().parse::<u32>().unwrap();
-    let dict_path = matches.value_of("dictionary_path").unwrap();
     let lookup_path = matches.value_of("lookup_path").unwrap();
-
-    // TODO: Clean up this coupling between dict and lookup.
-    let dict = ScrabbleDict::new(dict_path, "unused");
-
-    let lookup = create_lookup(&dict.words, num_tiles, num_trials);
+    let lookup = create_lookup(&SCRABBLE_DICT.lock().unwrap().words, num_tiles, num_trials);
     persist_lookup(&lookup, &lookup_path.into());
 }
 
