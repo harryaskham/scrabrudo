@@ -43,8 +43,8 @@ fn main() {
        .args_from_usage("-m, --mode=[MODE] 'perudo or scrabrudo'
                         -n, --num_players=[NUM_PLAYERS] 'the number of players'
                         -h, --human_index=[HUMAN_INDEX] 'which, if any, is the human'
-                        -d, --dictionary=[DICTIONARY] 'the path to the .txt dict to use'
-                        -l, --lookup=[LOOKUP] 'the path to the .bin lookup to use'")
+                        -d, --dictionary_path=[DICTIONARY] 'the path to the .txt dict to use'
+                        -l, --lookup_path=[LOOKUP] 'the path to the .bin lookup to write'")
        .get_matches(); 
 
     let mode = matches.value_of("mode").unwrap_or("scrabrudo");

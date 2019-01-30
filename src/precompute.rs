@@ -14,6 +14,7 @@ extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
 extern crate rayon;
+extern crate clap;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
@@ -36,6 +37,7 @@ use std::env;
 use std::fs::File;
 use std::sync::Arc;
 use std::sync::Mutex;
+use clap::App;
 
 // TODO: I stole this code - find a library or something.
 pub fn powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
@@ -136,21 +138,30 @@ fn persist_lookup(lookup: &HashMap<String, Vec<f64>>, path: &String) {
 
 fn main() {
     pretty_env_logger::init();
-    let args: Vec<String> = env::args().collect();
 
-    if args.len() < 3 {
-        info!("Please supply max_num_items and num_trials");
-        return;
-    }
+    let matches = App::new("Scrabrudo Precomputation")
+       .version("0.1")
+       .about("Precomputes lookups for Scrabrudo")
+       .author("Harry Askham")
+       .args_from_usage("-n, --num_tiles=[NUM_TILES] 'the max number of tiles to compute'
+                        -t, --num_trials=[NUM_TRIALS] 'the number of trials to run'
+                        -d, --dictionary_path=[DICTIONARY] 'the path to the .txt dict to use'
+                        -l, --lookup_path=[LOOKUP] 'the path to the .bin lookup to write'")
+       .get_matches(); 
 
-    let max_num_items = args[1].parse::<usize>().unwrap();
-    let num_trials = args[2].parse::<u32>().unwrap();
+    let mode = matches.value_of("mode").unwrap_or("scrabrudo");
+    let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
 
-    let lookup = create_lookup(&SCRABBLE_DICT.words, max_num_items, num_trials);
-    persist_lookup(
-        &lookup,
-        &format!("data/lookup_{}_{}.bin", max_num_items, num_trials),
-    );
+    let num_tiles = matches.value_of("num_tiles").unwrap().parse::<usize>().unwrap();
+    let num_trials = matches.value_of("num_trials").unwrap().parse::<u32>().unwrap();
+    let dict_path = matches.value_of("dictionary_path").unwrap();
+    let lookup_path = matches.value_of("lookup_path").unwrap();
+
+    // TODO: Clean up this coupling between dict and lookup.
+    let dict = ScrabbleDict::new(dict_path, "unused");
+
+    let lookup = create_lookup(&dict.words, num_tiles, num_trials);
+    persist_lookup(&lookup, &lookup_path.into());
 }
 
 speculate! {

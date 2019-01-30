@@ -10,21 +10,26 @@ pub struct ScrabbleDict {
 }
 
 lazy_static! {
-    pub static ref SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new();
+    // TODO: Change this for actual gameplay to use a Mutex and a mutable lazy init with the
+    // flag values.
+    pub static ref SCRABBLE_DICT: ScrabbleDict = ScrabbleDict::new(
+        "data/scrabble.txt",
+        "data/lookup_5_1000.bin"
+    );
 }
 
 impl ScrabbleDict {
-    pub fn new() -> Self {
+    pub fn new(dict_path: &str, lookup_path: &str) -> Self {
         Self {
-            words: Self::words(),
-            lookup: Self::lookup(),
+            words: Self::words(dict_path),
+            lookup: Self::lookup(lookup_path),
         }
     }
 
     /// A set of all words in the dictionary.
-    fn words() -> HashSet<String> {
+    fn words(dict_path: &str) -> HashSet<String> {
         info!("Loading Scrabble dictionary...");
-        let f = match File::open("data/scrabble.txt") {
+        let f = match File::open(dict_path) {
             Ok(file) => file,
             Err(e) => panic!("Couldn't open dictionary: {:?}", e),
         };
@@ -46,14 +51,14 @@ impl ScrabbleDict {
     }
 
     /// Loads the lookup table from sorted char-lists to per-quantity probability lists.
-    fn lookup() -> HashMap<String, Vec<f64>> {
+    fn lookup(lookup_path: &str) -> HashMap<String, Vec<f64>> {
         info!("Loading lookup table...");
-        // TODO: Predicate this on the number of dice around the table if we have bigger lookups.
-        let f = match File::open("data/lookup_5_1000.bin") {
-            // TODO: This takes minutes to open now. Move to SSTable.
-            // let f = match File::open("data/lookup_10_100.bin") {
+        let f = match File::open(lookup_path) {
             Ok(file) => file,
-            Err(e) => panic!("Couldn't open lookup: {:?}", e),
+            Err(e) => {
+                warn!("Couldn't open lookup: {:?}", e);
+                return hashmap!{};
+            }
         };
         bincode::deserialize_from(f).unwrap()
     }
