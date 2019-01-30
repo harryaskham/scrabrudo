@@ -14,6 +14,9 @@ extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
 extern crate rayon;
+extern crate clap;
+#[macro_use]
+extern crate maplit;
 
 pub mod bet;
 pub mod dict;
@@ -28,32 +31,30 @@ use crate::dict::*;
 use crate::game::*;
 
 use std::collections::HashSet;
-use std::env;
+use clap::App;
 
 fn main() {
     pretty_env_logger::init();
 
-    let args: Vec<String> = env::args().collect();
+    let matches = App::new("Scrabrudo")
+       .version("0.1")
+       .about("A mixture of Scrabble and Perudo")
+       .author("Harry Askham")
+       .args_from_usage("-m, --mode=[MODE] 'perudo or scrabrudo'
+                        -n, --num_players=[NUM_PLAYERS] 'the number of players'
+                        -h, --human_index=[HUMAN_INDEX] 'which, if any, is the human'
+                        -d, --dictionary=[DICTIONARY] 'the path to the .txt dict to use'
+                        -l, --lookup=[LOOKUP] 'the path to the .bin lookup to use'")
+       .get_matches(); 
 
-    info!("Scrabrudo 0.1");
-    if args.len() < 3 {
-        info!("Please supply mode and number of players");
-        return;
-    }
-
-    let mode = args[1].parse::<String>().unwrap();
-    let num_players = args[2].parse::<usize>().unwrap();
-    let mut human_indices = HashSet::new();
-
-    if args.len() >= 4 {
-        human_indices.insert(args[3].parse::<usize>().unwrap());
-    }
-    if args.len() >= 5 {
-        human_indices.insert(args[4].parse::<usize>().unwrap());
-    }
+    let mode = matches.value_of("mode").unwrap_or("scrabrudo");
+    let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
+    let human_indices: HashSet<usize> = hashset!{
+        matches.value_of("human_index").unwrap_or("0").parse::<usize>().unwrap()
+    };
 
     // TODO: Helper to kill dupe.
-    match mode.as_str() {
+    match mode {
         "perudo" => {
             let mut game = PerudoGame::new(num_players, 5, human_indices);
             loop {
