@@ -55,12 +55,6 @@ fn main() {
         None => ()
     };
 
-    let dict_path = matches.value_of("dictionary_path").unwrap();
-    let lookup_path = matches.value_of("lookup_path").unwrap();
-
-    SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
-    SCRABBLE_DICT.lock().unwrap().init_lookup(lookup_path);
-
     // TODO: Helper to kill dupe.
     match mode {
         "perudo" => {
@@ -74,6 +68,11 @@ fn main() {
             }
         }
         "scrabrudo" => {
+            let dict_path = matches.value_of("dictionary_path").unwrap();
+            let lookup_path = matches.value_of("lookup_path").unwrap();
+            SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
+            SCRABBLE_DICT.lock().unwrap().init_lookup(lookup_path);
+
             info!(
                 "Loaded lookup: {} items",
                 SCRABBLE_DICT.lock().unwrap().lookup.len()
