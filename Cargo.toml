@@ -18,6 +18,7 @@ bincode = "1.0.1"
 lazy_static = "1.2.0"
 rayon = "1.0"
 clap = "2.32.0"
+sled = "0.17.9"
 
 [dev-dependencies]
 speculate = "0.1.0"

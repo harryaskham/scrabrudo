@@ -11,8 +11,8 @@ pub fn set_up() {
     let mut state = SET_UP_DONE.lock().unwrap();
     if !*state {
         pretty_env_logger::try_init();
-        dict::init_dict("data/scrabble.txt");
-        dict::init_lookup("data/lookup_5_1000.bin");
+        dict::init_dict("data/google-10000-english.txt");
+        dict::init_lookup("data/small_test_5_10");
         *state = true;
     }
 }

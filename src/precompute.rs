@@ -15,6 +15,7 @@ extern crate bincode;
 extern crate lazy_static;
 extern crate rayon;
 extern crate clap;
+extern crate sled;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
@@ -89,10 +90,15 @@ fn all_sorted_substrings(word: &String, max_length: usize) -> HashSet<String> {
 /// First we explode out via flat_map to all possible substrings, and then we map these to their
 /// Monte Carlo probabilities.
 fn create_lookup(
+    lookup_path: &str,
     words: &HashSet<String>,
     max_num_items: usize,
     num_trials: u32,
-) -> HashMap<String, Vec<f64>> {
+) {
+    // Init the DB early.
+    let t = sled::Db::start_default(lookup_path).unwrap();
+
+    // Expand out the dict to subwords.
     let word_counter = Arc::new(Mutex::new(0));
     let expanded_words = words
         .par_iter()
@@ -104,15 +110,18 @@ fn create_lookup(
         .collect::<HashSet<String>>();
     info!("Created {} word expansions", expanded_words.len());
 
+    // Compute all the probabilities and persist to disk via Sled.
     let prob_counter = Arc::new(Mutex::new(0));
     expanded_words
         .par_iter()
         .map(|s| {
             *prob_counter.lock().unwrap() += 1;
             info! {"{} / {} probs calculated", prob_counter.lock().unwrap(), expanded_words.len()};
-            (s.clone(), probabilities(&s, max_num_items, num_trials))
+            // Compute probs and encode
+            let probs = bincode::serialize(&probabilities(&s, max_num_items, num_trials)).unwrap();
+            t.set(s, probs);
         })
-        .collect::<HashMap<String, Vec<f64>>>()
+        .collect::<Vec<()>>();  // Got to force it to run.
 }
 
 /// Computes the various probabilities of finding the given substring in each possible number of
@@ -126,16 +135,6 @@ fn probabilities(s: &String, max_num_items: usize, num_trials: u32) -> Vec<f64> 
         .collect()
 }
 
-/// Save the lookup to disk.
-fn persist_lookup(lookup: &HashMap<String, Vec<f64>>, path: &String) {
-    info!("Saving the lookup table as {}...", path);
-
-    let mut file = File::create(path).unwrap();
-    bincode::serialize_into(&mut file, lookup).unwrap();
-
-    info!("Saved the lookup table as {}", path);
-}
-
 fn main() {
     pretty_env_logger::init();
 
@@ -146,12 +145,11 @@ fn main() {
        .args_from_usage("-n, --num_tiles=[NUM_TILES] 'the max number of tiles to compute'
                         -t, --num_trials=[NUM_TRIALS] 'the number of trials to run'
                         -d, --dictionary_path=[DICTIONARY] 'the path to the .txt dict to use'
-                        -l, --lookup_path=[LOOKUP] 'the path to the .bin lookup to write'")
+                        -l, --lookup_path=[LOOKUP] 'the path to the lookup DB to write'")
        .get_matches(); 
 
     let mode = matches.value_of("mode").unwrap_or("scrabrudo");
     let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
-
 
     let dict_path = matches.value_of("dictionary_path").unwrap();
     dict::init_dict(dict_path);
@@ -159,8 +157,7 @@ fn main() {
     let num_tiles = matches.value_of("num_tiles").unwrap().parse::<usize>().unwrap();
     let num_trials = matches.value_of("num_trials").unwrap().parse::<u32>().unwrap();
     let lookup_path = matches.value_of("lookup_path").unwrap();
-    let lookup = create_lookup(&DICT.lock().unwrap(), num_tiles, num_trials);
-    persist_lookup(&lookup, &lookup_path.into());
+    create_lookup(&lookup_path, &dict::dict(), num_tiles, num_trials);
 }
 
 speculate! {
@@ -217,13 +214,15 @@ speculate! {
 
     describe "lookup generation" {
         it "creates a small lookup table" {
-            let lookup = create_lookup(&hashset!{ "an".into() }, 5, 10000);
-            assert_eq!(3, lookup.len());
-            assert!(lookup.contains_key("a".into()));
-            assert!(lookup.contains_key("n".into()));
-            assert!(lookup.contains_key("an".into()));
+            create_lookup("/tmp/lookup1", &hashset!{ "an".into() }, 5, 10000);
+            dict::init_lookup("/tmp/lookup1");
 
-            let probs = lookup.get("a".into()).unwrap();
+            assert_eq!(3, dict::lookup_len());
+            assert!(dict::lookup_has("a".into()));
+            assert!(dict::lookup_has("n".into()));
+            assert!(dict::lookup_has("an".into()));
+
+            let probs = dict::lookup_probs("a".into());
 
             // We should always have for each amount of tiles, plus the zero-case.
             assert_eq!(6, probs.len());
@@ -239,22 +238,9 @@ speculate! {
         }
 
         it "creates a larger lookup table" {
-            let lookup = create_lookup(&hashset!{ "bat".into(), "cat".into() }, 5, 10);
-            let actual_keys = lookup.keys().map(|k| k.clone()).collect::<HashSet<String>>();
-            let expected_keys: HashSet<String> = hashset! {
-                "abt".into(),
-                "act".into(),
-                "ab".into(),
-                "ac".into(),
-                "at".into(),
-                "bt".into(),
-                "ct".into(),
-                "a".into(),
-                "b".into(),
-                "c".into(),
-                "t".into(),
-            };
-            assert_eq!(expected_keys, actual_keys);
+            create_lookup("/tmp/lookup2", &hashset!{ "bat".into(), "cat".into() }, 5, 10);
+            dict::init_lookup("/tmp/lookup2");
+            assert_eq!(11, dict::lookup_len());
         }
     }
 }

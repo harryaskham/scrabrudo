@@ -17,6 +17,7 @@ extern crate rayon;
 extern crate clap;
 #[macro_use]
 extern crate maplit;
+extern crate sled;
 
 pub mod bet;
 pub mod dict;
@@ -27,7 +28,6 @@ pub mod player;
 pub mod testing;
 pub mod tile;
 
-use crate::dict::*;
 use crate::game::*;
 
 use std::collections::HashSet;
@@ -64,11 +64,6 @@ fn main() {
             let lookup_path = matches.value_of("lookup_path").unwrap();
             dict::init_dict(dict_path);
             dict::init_lookup(lookup_path);
-
-            info!(
-                "Loaded lookup: {} items",
-                LOOKUP.lock().unwrap().len()
-            );
             ScrabrudoGame::new(num_players, 5, human_indices).run();
         },
         _ => panic!("Invalid mode: {}", mode),

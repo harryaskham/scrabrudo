@@ -433,11 +433,11 @@ impl Bet for ScrabrudoBet {
             .into_iter()
             .map(|t| t.char())
             .collect::<String>();
-        if !LOOKUP.lock().unwrap().contains_key(&substring) {
+        if !dict::lookup_has(&substring) {
             0.0 // If we somehow didn't compute this length yet then 0.0
                 // We can prob remove the above
         } else {
-            LOOKUP.lock().unwrap().get(&substring).unwrap()[num_tiles]
+            dict::lookup_probs(&substring)[num_tiles]
         }
     }
 
@@ -558,7 +558,7 @@ speculate! {
                 num_items_per_player: vec![4],
                 history: vec![],
             });
-            assert_eq!(4971, bets.len());
+            assert_eq!(2193, bets.len());
             for bet in bets {
                 assert!(bet.tiles.len() <= 4);
             }
