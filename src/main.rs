@@ -49,8 +49,10 @@ fn main() {
 
     let mode = matches.value_of("mode").unwrap_or("scrabrudo");
     let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
-    let human_indices: HashSet<usize> = hashset!{
-        matches.value_of("human_index").unwrap_or("0").parse::<usize>().unwrap()
+    let mut human_indices: HashSet<usize> = hashset!{};
+    match matches.value_of("human_index") {
+        Some(x) => { human_indices.insert(x.parse::<usize>().unwrap()); }
+        None => ()
     };
 
     let dict_path = matches.value_of("dictionary_path").unwrap();
@@ -73,7 +75,7 @@ fn main() {
         }
         "scrabrudo" => {
             info!(
-                "Loaded Scrabble lookup: {} items",
+                "Loaded lookup: {} items",
                 SCRABBLE_DICT.lock().unwrap().lookup.len()
             );
             let mut game = ScrabrudoGame::new(num_players, 5, human_indices);

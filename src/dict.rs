@@ -32,7 +32,7 @@ impl ScrabbleDict {
 
     /// A set of all words in the dictionary.
     fn words(dict_path: &str) -> HashSet<String> {
-        info!("Loading Scrabble dictionary...");
+        info!("Loading dictionary...");
         let f = match File::open(dict_path) {
             Ok(file) => file,
             Err(e) => panic!("Couldn't open dictionary: {:?}", e),
