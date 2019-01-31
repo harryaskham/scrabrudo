@@ -222,7 +222,7 @@ speculate! {
             assert!(dict::lookup_has("n".into()));
             assert!(dict::lookup_has("an".into()));
 
-            let probs = dict::lookup_probs("a".into());
+            let probs = dict::lookup_probs("a".into()).unwrap();
 
             // We should always have for each amount of tiles, plus the zero-case.
             assert_eq!(6, probs.len());

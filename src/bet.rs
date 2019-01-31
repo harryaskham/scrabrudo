@@ -437,7 +437,10 @@ impl Bet for ScrabrudoBet {
             0.0 // If we somehow didn't compute this length yet then 0.0
                 // We can prob remove the above
         } else {
-            dict::lookup_probs(&substring)[num_tiles]
+            match dict::lookup_probs(&substring) {
+                Some(ps) => ps[num_tiles],
+                None => 0.0  // TODO: Work out why this happens - we should have every permutation.
+            }
         }
     }
 

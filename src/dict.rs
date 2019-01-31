@@ -25,7 +25,7 @@ pub fn dict() -> Dictionary {
     DICT.lock().unwrap().clone().unwrap()
 }
 
-pub fn lookup() -> sled::Db {
+fn lookup() -> sled::Db {
     LOOKUP.lock().unwrap().clone().unwrap()
 }
 
@@ -58,8 +58,12 @@ pub fn lookup_has(s: &str) -> bool {
 }
 
 /// Pull the encoded list out of the sled DB.
-pub fn lookup_probs(s: &str) -> Vec<f64> {
-    let encoded_probs = lookup().get(s).unwrap().unwrap();
+/// None if we don't have probs for this.
+pub fn lookup_probs(s: &str) -> Option<Vec<f64>> {
+    let encoded_probs = match lookup().get(s).unwrap() {
+        Some(ps) => ps,
+        None => return None
+    };
     bincode::deserialize(&(encoded_probs.to_owned())[..]).unwrap()
 }
 
