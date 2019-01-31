@@ -1,5 +1,6 @@
 /// Player definitions and human/CPU behaviour.
 use crate::bet::*;
+use crate::dict;
 use crate::dict::*;
 use crate::die::*;
 use crate::game::*;
@@ -440,7 +441,7 @@ impl Player for ScrabrudoPlayer {
 
             return match current_outcome {
                 TurnOutcome::First => {
-                    if !SCRABBLE_DICT.lock().unwrap().has_word(&line) {
+                    if !dict::has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else {
@@ -448,7 +449,7 @@ impl Player for ScrabrudoPlayer {
                     }
                 }
                 TurnOutcome::Bet(current_bet) => {
-                    if !SCRABBLE_DICT.lock().unwrap().has_word(&line) {
+                    if !dict::has_word(&line) {
                         info!("Bet was not in dict");
                         continue;
                     } else if bet <= *current_bet {

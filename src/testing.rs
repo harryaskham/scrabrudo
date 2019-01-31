@@ -1,6 +1,6 @@
 /// Test utils.
 
-use crate::dict::*;
+use crate::dict;
 use std::sync::Mutex;
 
 lazy_static! {
@@ -11,9 +11,8 @@ pub fn set_up() {
     let mut state = SET_UP_DONE.lock().unwrap();
     if !*state {
         pretty_env_logger::try_init();
-        SCRABBLE_DICT.lock().unwrap().init_dict("data/scrabble.txt");
-        SCRABBLE_DICT.lock().unwrap().init_lookup("data/lookup_5_1000.bin");
-
+        dict::init_dict("data/scrabble.txt");
+        dict::init_lookup("data/lookup_5_1000.bin");
         *state = true;
     }
 }

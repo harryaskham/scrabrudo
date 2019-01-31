@@ -1,4 +1,5 @@
 /// Bet definitions and related logic.
+use crate::dict;
 use crate::dict::*;
 use crate::die::*;
 use crate::game::*;
@@ -289,8 +290,7 @@ impl Bet for ScrabrudoBet {
     type V = Tile;
 
     fn all(state: &GameState<Self>) -> Vec<Box<Self>> {
-        SCRABBLE_DICT.lock().unwrap()
-            .words_with_max_length(state.total_num_items)
+        dict::words_with_max_length(state.total_num_items)
             .into_iter()
             .map(|w| Box::new(Self::from_word(&w)))
             .collect()
@@ -433,11 +433,11 @@ impl Bet for ScrabrudoBet {
             .into_iter()
             .map(|t| t.char())
             .collect::<String>();
-        if !SCRABBLE_DICT.lock().unwrap().lookup.contains_key(&substring) {
+        if !LOOKUP.lock().unwrap().contains_key(&substring) {
             0.0 // If we somehow didn't compute this length yet then 0.0
                 // We can prob remove the above
         } else {
-            SCRABBLE_DICT.lock().unwrap().lookup.get(&substring).unwrap()[num_tiles]
+            LOOKUP.lock().unwrap().get(&substring).unwrap()[num_tiles]
         }
     }
 

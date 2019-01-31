@@ -62,12 +62,12 @@ fn main() {
         "scrabrudo" => {
             let dict_path = matches.value_of("dictionary_path").unwrap();
             let lookup_path = matches.value_of("lookup_path").unwrap();
-            SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
-            SCRABBLE_DICT.lock().unwrap().init_lookup(lookup_path);
+            dict::init_dict(dict_path);
+            dict::init_lookup(lookup_path);
 
             info!(
                 "Loaded lookup: {} items",
-                SCRABBLE_DICT.lock().unwrap().lookup.len()
+                LOOKUP.lock().unwrap().len()
             );
             ScrabrudoGame::new(num_players, 5, human_indices).run();
         },

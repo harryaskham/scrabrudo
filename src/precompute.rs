@@ -154,12 +154,12 @@ fn main() {
 
 
     let dict_path = matches.value_of("dictionary_path").unwrap();
-    SCRABBLE_DICT.lock().unwrap().init_dict(dict_path);
+    dict::init_dict(dict_path);
 
     let num_tiles = matches.value_of("num_tiles").unwrap().parse::<usize>().unwrap();
     let num_trials = matches.value_of("num_trials").unwrap().parse::<u32>().unwrap();
     let lookup_path = matches.value_of("lookup_path").unwrap();
-    let lookup = create_lookup(&SCRABBLE_DICT.lock().unwrap().words, num_tiles, num_trials);
+    let lookup = create_lookup(&DICT.lock().unwrap(), num_tiles, num_trials);
     persist_lookup(&lookup, &lookup_path.into());
 }
 
