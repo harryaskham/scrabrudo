@@ -6,7 +6,7 @@ A letter-based variant on a game of dice estimation.
 To play Scrabrudo against 1 other player, with human going first, run:
 
 ```sh
-RUST_LOG=info cargo run --bin scrabrudo
+RUST_LOG=info cargo run --bin scrabrudo -- --dictionary_path=data/<dict>.txt --lookup_path=data/<lookup>.bin
 ```
 
 To play basic Perudo against 3:
