@@ -5,14 +5,14 @@ A letter-based variant on a game of dice estimation.
 
 To play Scrabrudo against 1 other player, with human going first, run:
 
-```
-RUST_LOG=info cargo run --bin scrabrudo scrabrudo 2 0
+```sh
+RUST_LOG=info cargo run --bin scrabrudo
 ```
 
 To play basic Perudo against 3:
 
-```
-RUST_LOG=info cargo run --bin scrabrudo perudo 4 0
+```sh
+RUST_LOG=info cargo run --bin scrabrudo -- --mode=perudo --num_players=4
 ```
 
 ## Initialization
@@ -31,8 +31,8 @@ Therefore, instead, we perform Monte Carlo simulation for every possible valid s
 
 The lookup table is stored as `data/lookup_<max_num_tiles>_<num_trials>.bin`. It is created by e.g.:
 
-```
-RUST_LOG=info cargo run --bin precompute 5 1000
+```sh
+RUST_LOG=info cargo run --bin precompute -- --num_tiles=5 --num_trials=1000
 ```
 
 Which would compute enough of the table for 2 player, 5 tiles each play - since it will cover all possibilities of searching for any valid substring within 5 tiles. This runs 1000 trials per subword.
