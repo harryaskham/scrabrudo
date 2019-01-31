@@ -249,6 +249,18 @@ pub trait Game: Sized + fmt::Display {
         Self::new_with(players, winner_index, TurnOutcome::First, vec![])
     }
 
+    /// Runs the game to completion immutably.
+    fn run(self) {
+        let mut game = self;
+        loop {
+            game = game.run_turn();
+            match game.current_outcome() {
+                TurnOutcome::Win => return,
+                _ => continue,
+            }
+        }
+    }
+
     /// Runs a turn and either finishes or sets up for the next turn, returning a full copy of
     /// the game in the new state.
     fn run_turn(&self) -> Self {

@@ -55,18 +55,10 @@ fn main() {
         None => ()
     };
 
-    // TODO: Helper to kill dupe.
     match mode {
         "perudo" => {
-            let mut game = PerudoGame::new(num_players, 5, human_indices);
-            loop {
-                game = game.run_turn();
-                match game.current_outcome {
-                    TurnOutcome::Win => return,
-                    _ => continue,
-                }
-            }
-        }
+            PerudoGame::new(num_players, 5, human_indices).run();
+        },
         "scrabrudo" => {
             let dict_path = matches.value_of("dictionary_path").unwrap();
             let lookup_path = matches.value_of("lookup_path").unwrap();
@@ -77,15 +69,8 @@ fn main() {
                 "Loaded lookup: {} items",
                 SCRABBLE_DICT.lock().unwrap().lookup.len()
             );
-            let mut game = ScrabrudoGame::new(num_players, 5, human_indices);
-            loop {
-                game = game.run_turn();
-                match game.current_outcome {
-                    TurnOutcome::Win => return,
-                    _ => continue,
-                }
-            }
-        }
-        _x => info!("Invalid mode: {}", mode),
-    }
+            ScrabrudoGame::new(num_players, 5, human_indices).run();
+        },
+        _ => panic!("Invalid mode: {}", mode),
+    };
 }
