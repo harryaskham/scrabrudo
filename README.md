@@ -32,7 +32,7 @@ Therefore, instead, we perform Monte Carlo simulation for every possible valid s
 The lookup table is stored as `data/lookup_<max_num_tiles>_<num_trials>.bin`. It is created by e.g.:
 
 ```sh
-RUST_LOG=info cargo run --bin precompute -- --num_tiles=5 --num_trials=1000
+RUST_LOG=info cargo run --bin precompute -- --num_tiles=5 --num_trials=1000 --dictionary_path=... --lookup_path=<output>
 ```
 
 Which would compute enough of the table for 2 player, 5 tiles each play - since it will cover all possibilities of searching for any valid substring within 5 tiles. This runs 1000 trials per subword.
