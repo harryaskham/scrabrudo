@@ -15,7 +15,7 @@ extern crate bincode;
 extern crate lazy_static;
 extern crate rayon;
 extern crate clap;
-extern crate sled;
+extern crate sstable;
 
 // TODO: Can we get away without redefining the world?
 pub mod bet;
@@ -36,9 +36,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::sync::Arc;
 use std::sync::Mutex;
 use clap::App;
+use sstable::{TableBuilder, Options};
 
 // TODO: I stole this code - find a library or something.
 pub fn powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
@@ -95,9 +97,6 @@ fn create_lookup(
     max_num_items: usize,
     num_trials: u32,
 ) {
-    // Init the DB early.
-    let t = sled::Db::start_default(lookup_path).unwrap();
-
     // Expand out the dict to subwords.
     let word_counter = Arc::new(Mutex::new(0));
     let expanded_words = words
@@ -110,18 +109,33 @@ fn create_lookup(
         .collect::<HashSet<String>>();
     info!("Created {} word expansions", expanded_words.len());
 
-    // Compute all the probabilities and persist to disk via Sled.
+    // Compute all the probabilities and persist to disk.
     let prob_counter = Arc::new(Mutex::new(0));
-    expanded_words
+    let mut probs = expanded_words
         .par_iter()
         .map(|s| {
             *prob_counter.lock().unwrap() += 1;
             info! {"{} / {} probs calculated", prob_counter.lock().unwrap(), expanded_words.len()};
             // Compute probs and encode
             let probs = bincode::serialize(&probabilities(&s, max_num_items, num_trials)).unwrap();
-            t.set(s, probs);
+            (s, probs)
         })
-        .collect::<Vec<()>>();  // Got to force it to run.
+        .collect::<Vec<(&String, Vec<u8>)>>();
+
+
+    // Write the probs out to an SSTable.
+    // First the keys need to be sorted.
+    probs.sort_by(|a, b| a.0.cmp(&b.0));
+    let lookup_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(lookup_path)
+        .unwrap();
+    let mut builder = TableBuilder::new(Options::default(), lookup_file);
+    for prob_row in probs {
+        builder.add(prob_row.0.as_bytes(), &prob_row.1).unwrap();
+    }
+    builder.finish().unwrap();
 }
 
 /// Computes the various probabilities of finding the given substring in each possible number of
@@ -214,8 +228,8 @@ speculate! {
 
     describe "lookup generation" {
         it "creates a small lookup table" {
-            create_lookup("/tmp/lookup1", &hashset!{ "an".into() }, 5, 10000);
-            dict::init_lookup("/tmp/lookup1");
+            create_lookup("/tmp/lookup1.sstable", &hashset!{ "an".into() }, 5, 10000);
+            dict::init_lookup("/tmp/lookup1.sstable");
 
             assert_eq!(3, dict::lookup_len());
             assert!(dict::lookup_has("a".into()));
@@ -238,8 +252,8 @@ speculate! {
         }
 
         it "creates a larger lookup table" {
-            create_lookup("/tmp/lookup2", &hashset!{ "bat".into(), "cat".into() }, 5, 10);
-            dict::init_lookup("/tmp/lookup2");
+            create_lookup("/tmp/lookup2.sstable", &hashset!{ "bat".into(), "cat".into() }, 5, 10);
+            dict::init_lookup("/tmp/lookup2.sstable");
             assert_eq!(11, dict::lookup_len());
         }
     }

@@ -17,7 +17,7 @@ extern crate rayon;
 extern crate clap;
 #[macro_use]
 extern crate maplit;
-extern crate sled;
+extern crate sstable;
 
 pub mod bet;
 pub mod dict;

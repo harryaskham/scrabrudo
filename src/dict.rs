@@ -3,12 +3,14 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::Mutex;
+use sstable::{Table, Options, SSIterator};
+use std::path::Path;
 
 type Dictionary = HashSet<String>;
 
 lazy_static! {
     static ref DICT: Mutex<Option<Dictionary>> = Mutex::new(None);
-    static ref LOOKUP: Mutex<Option<sled::Db>> = Mutex::new(None);
+    static ref LOOKUP: Mutex<Option<String>> = Mutex::new(None);
 }
 
 pub fn init_dict(dict_path: &str) {
@@ -18,15 +20,16 @@ pub fn init_dict(dict_path: &str) {
 
 pub fn init_lookup(lookup_path: &str) {
     let mut lookup = LOOKUP.lock().unwrap();
-    *lookup = Some(sled::Db::start_default(lookup_path).unwrap());
+    *lookup = Some(lookup_path.into());
 }
 
 pub fn dict() -> Dictionary {
     DICT.lock().unwrap().clone().unwrap()
 }
 
-fn lookup() -> sled::Db {
-    LOOKUP.lock().unwrap().clone().unwrap()
+fn lookup() -> Table {
+    let lookup_path = LOOKUP.lock().unwrap().clone().unwrap();
+    Table::new_from_file(Options::default(), Path::new(&lookup_path)).unwrap()
 }
 
 pub fn has_word(word: &String) -> bool {
@@ -52,22 +55,32 @@ fn load_dict(dict_path: &str) -> Dictionary {
     BufReader::new(f).lines().map(|l| l.unwrap()).collect()
 }
 
-/// Does the sled DB contain the word?
+/// Does the lookup contain the word?
 pub fn lookup_has(s: &str) -> bool {
-   lookup().contains_key(s).unwrap()
+   match lookup().get(s.as_bytes()).unwrap() {
+       Some(_) => true,
+       None => false,
+   }
 }
 
-/// Pull the encoded list out of the sled DB.
+/// Pull the encoded list out of the storage.
 /// None if we don't have probs for this.
 pub fn lookup_probs(s: &str) -> Option<Vec<f64>> {
-    let encoded_probs = match lookup().get(s).unwrap() {
-        Some(ps) => ps,
-        None => return None
-    };
-    bincode::deserialize(&(encoded_probs.to_owned())[..]).unwrap()
+   let encoded_probs = match lookup().get(s.as_bytes()).unwrap() {
+       Some(ps) => ps,
+       None => return None,
+   };
+   Some(bincode::deserialize(&encoded_probs).unwrap())
 }
 
 /// How many keys?
 pub fn lookup_len() -> usize {
-    lookup().keys(vec![]).count()
+    let mut len = 0;
+    let mut iter = lookup().iter();
+    loop {
+        match iter.next() {
+            Some(_) => len += 1,
+            None => return len
+        }
+    }
 }
