@@ -12,7 +12,7 @@ pub fn set_up() {
     if !*state {
         pretty_env_logger::try_init();
         dict::init_dict("data/google-10000-english.txt");
-        dict::init_lookup("data/simple_5_10.sstable");
+        dict::init_lookup("data/simple_5_100.sstable");
         *state = true;
     }
 }
