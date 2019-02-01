@@ -568,6 +568,7 @@ speculate! {
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
+            // However, this does depend on the accuracy of the Monte Carlo sim.
             let opponent_bet = &ScrabrudoBet::from_word(&"cat".into());
             let best_outcome_above = player.best_outcome_above(state, opponent_bet);
             assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
