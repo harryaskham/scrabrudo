@@ -488,7 +488,7 @@ speculate! {
             let state = &GameState::<PerudoBet> {
                 total_num_items: 5,
                 num_items_per_player: vec![5],
-                history: vec![],
+                history: hashmap!{},
             };
             let opponent_bet = &PerudoBet {
                 quantity: 4,
@@ -514,7 +514,7 @@ speculate! {
             let state = &GameState::<PerudoBet> {
                 total_num_items: 2,
                 num_items_per_player: vec![1, 1],
-                history: vec![],
+                history: hashmap!{},
             };
             let opponent_bet = &PerudoBet {
                 quantity: 1,
@@ -540,7 +540,7 @@ speculate! {
             let state = &GameState::<ScrabrudoBet> {
                 total_num_items: 3,
                 num_items_per_player: vec![2, 1],
-                history: vec![],
+                history: hashmap!{},
             };
 
             assert_eq!(
@@ -564,17 +564,12 @@ speculate! {
             let state = &GameState::<ScrabrudoBet> {
                 total_num_items: 9,
                 num_items_per_player: vec![4, 5],
-                history: vec![
-                    HistoricalBet {
-                        index: 1,
-                        bet: ScrabrudoBet::from_word(&"chas".into()),
-                    }
-                ],
+                history: hashmap!{ 1 => vec![ScrabrudoBet::from_word(&"zzz".into())] }
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
-            // However, this does depend on the accuracy of the Monte Carlo sim.
-            let current_outcome = TurnOutcome::Bet::<ScrabrudoBet>(ScrabrudoBet::from_word(&"chas".into()));
+            // We will never call Perudo as we have all the letters
+            let current_outcome = TurnOutcome::Bet::<ScrabrudoBet>(ScrabrudoBet::from_word(&"zzz".into()));
             let next_outcome = player.play(state, &current_outcome);
             assert_eq!(next_outcome, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
         }

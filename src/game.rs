@@ -22,15 +22,7 @@ pub enum TurnOutcome<B: Bet> {
     Win,
 }
 
-// TODO: This needs to live in Bet.
-#[derive(Clone, Debug, PartialEq)]
-pub struct HistoricalBet<B: Bet> {
-    /// The player index making the bet.
-    pub index: usize,
-
-    /// The bet that was made.
-    pub bet: B,
-}
+type History<B: Bet> = HashMap<usize, Vec<B>>;
 
 /// An export of the state of the game required by Bets/Players to make progress.
 pub struct GameState<B: Bet> {
@@ -40,8 +32,9 @@ pub struct GameState<B: Bet> {
     /// The number of items remaining with each player.
     pub num_items_per_player: Vec<usize>,
 
-    /// The history of bets so far.
-    pub history: Vec<HistoricalBet<B>>,
+    /// The history of bets so far in the round.
+    /// This is keyed by the player ID.
+    pub history: History<B>,
 }
 
 /// Trait implemented by all game types.
@@ -66,7 +59,7 @@ pub trait Game: Sized + fmt::Display {
                 human_indices.contains(&id),
             ));
         }
-        Self::new_with(players, 0, TurnOutcome::First, vec![])
+        Self::new_with(players, 0, TurnOutcome::First, hashmap!{})
     }
 
     /// Creates a new instance with the given fields.
@@ -74,7 +67,7 @@ pub trait Game: Sized + fmt::Display {
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
-        history: Vec<HistoricalBet<Self::B>>,
+        history: History<Self::B>,
     ) -> Self;
 
     /// Creates a new player.
@@ -103,15 +96,13 @@ pub trait Game: Sized + fmt::Display {
     fn is_exactly_correct(&self, bet: &Self::B) -> bool;
 
     /// Gets the betting history for this game.
-    fn history(&self) -> &Vec<HistoricalBet<Self::B>>;
+    fn history(&self) -> &History<Self::B>;
 
     /// Gets the current history with the current bet appended.
-    fn history_with_bet(&self, bet: &Self::B) -> Vec<HistoricalBet<Self::B>> {
+    fn history_with_bet(&self, player_id: usize, bet: &Self::B) -> History<Self::B> {
         let mut history = self.history().clone();
-        history.push(HistoricalBet {
-            index: self.current_index(),
-            bet: bet.clone(),
-        });
+        let mut bets = history.entry(player_id).or_insert(vec![]);
+        bets.push(bet.clone());
         history
     }
 
@@ -218,10 +209,10 @@ pub trait Game: Sized + fmt::Display {
             let current_index = (loser_index % players.len()) as usize;
 
             if players.len() > 1 {
-                return Self::new_with(players, current_index, TurnOutcome::First, vec![]);
+                return Self::new_with(players, current_index, TurnOutcome::First, hashmap!{});
             } else {
                 info!("Player {} wins!", players[0].id());
-                return Self::new_with(players, 0, TurnOutcome::Win, vec![]);
+                return Self::new_with(players, 0, TurnOutcome::Win, hashmap!{});
             }
         } else {
             // Refresh all players, loser loses an item.
@@ -232,7 +223,7 @@ pub trait Game: Sized + fmt::Display {
                 players[loser_index].num_items()
             );
             // Reset and prepare for the next turn.
-            return Self::new_with(players, loser_index, TurnOutcome::First, vec![]);
+            return Self::new_with(players, loser_index, TurnOutcome::First, hashmap!{});
         }
     }
 
@@ -246,7 +237,7 @@ pub trait Game: Sized + fmt::Display {
             winner.id(),
             winner.num_items()
         );
-        Self::new_with(players, winner_index, TurnOutcome::First, vec![])
+        Self::new_with(players, winner_index, TurnOutcome::First, hashmap!{})
     }
 
     /// Runs the game to completion immutably.
@@ -278,7 +269,7 @@ pub trait Game: Sized + fmt::Display {
                     self.cloned_players(),
                     (self.current_index() + 1) % self.players().len(),
                     TurnOutcome::Bet(bet.clone()),
-                    self.history_with_bet(&bet),
+                    self.history_with_bet(self.current_index(), &bet),
                 )
             }
             TurnOutcome::Perudo => {
@@ -309,7 +300,7 @@ pub struct PerudoGame {
     pub players: Vec<Box<dyn Player<B = PerudoBet, V = Die>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome<PerudoBet>,
-    pub history: Vec<HistoricalBet<PerudoBet>>,
+    pub history: History<PerudoBet>,
 }
 
 impl fmt::Display for PerudoGame {
@@ -355,7 +346,7 @@ impl Game for PerudoGame {
         self.current_index
     }
 
-    fn history(&self) -> &Vec<HistoricalBet<Self::B>> {
+    fn history(&self) -> &History<Self::B> {
         &self.history
     }
 
@@ -363,7 +354,7 @@ impl Game for PerudoGame {
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
-        history: Vec<HistoricalBet<Self::B>>,
+        history: History<Self::B>,
     ) -> Self {
         Self {
             players: players,
@@ -424,7 +415,7 @@ pub struct ScrabrudoGame {
     pub players: Vec<Box<dyn Player<B = ScrabrudoBet, V = Tile>>>,
     pub current_index: usize,
     pub current_outcome: TurnOutcome<ScrabrudoBet>,
-    pub history: Vec<HistoricalBet<ScrabrudoBet>>,
+    pub history: History<ScrabrudoBet>,
 }
 
 impl fmt::Display for ScrabrudoGame {
@@ -470,7 +461,7 @@ impl Game for ScrabrudoGame {
         self.current_index
     }
 
-    fn history(&self) -> &Vec<HistoricalBet<Self::B>> {
+    fn history(&self) -> &History<Self::B> {
         &self.history
     }
 
@@ -478,7 +469,7 @@ impl Game for ScrabrudoGame {
         players: Vec<Box<dyn Player<B = Self::B, V = Self::V>>>,
         current_index: usize,
         current_outcome: TurnOutcome<Self::B>,
-        history: Vec<HistoricalBet<Self::B>>,
+        history: History<Self::B>,
     ) -> Self {
         Self {
             players: players,
@@ -564,7 +555,7 @@ speculate! {
             ],
             current_index: 0,
             current_outcome: TurnOutcome::First,
-            history: vec![],
+            history: hashmap!{},
         };
 
         // Cat is there, but has dupes
@@ -608,7 +599,7 @@ speculate! {
             ],
             current_index: 0,
             current_outcome: TurnOutcome::First,
-            history: vec![],
+            history: hashmap!{},
         };
         let next_game = game.run_turn();
 

@@ -391,39 +391,64 @@ impl Bet for ScrabrudoBet {
 
         // First get the set of tiles we need to find.
         let mut tiles_to_find = self.tiles.clone();
+        debug!("Player is trying to find {:?}", tiles_to_find);
         for tile in player.items() {
-            match tiles_to_find.binary_search(tile) {
-                Ok(i) => {
+            match tiles_to_find.iter().position(|x| x == tile) {
+                Some(i) => {
+                    debug!("Removing {:?} from {:?}", tile, tiles_to_find);
                     tiles_to_find.remove(i);
                 }
-                Err(_) => (),
+                None => {
+                    debug!("Could not find {:?} in {:?}", tile, tiles_to_find);
+                }
             };
         }
+        debug!("After removing tiles in our hand, we need to find {:?}", tiles_to_find);
 
         // Get the number of tiles we have to search in.
         let num_tiles = state.total_num_items - player.num_items();
 
-        // TODO: "Believe" a certain number of tiles here, potentially only from the bet of the
-        // next player to play.
-        // TODO: Plug in a strategy here - right now we believe everything the last person said.
-        let belief_tiles = match state.history.last() {
-            None => vec![],
-            Some(historical_bet) => historical_bet.bet.tiles.clone(),
-        };
+        // Get the set of all tiles bet by other players.
+        // TODO: We don't accept duplicates from any player here - should we? This will make us
+        // more pessimistic.
+        // We believe a different set of tiles for every single word - this could definitely be
+        // split out.
+        let all_opponent_tiles = state.history.clone()
+            .into_iter()
+            .filter(|(pid, _)| pid != &player.id())
+            .map(|(_, bets)| bets.into_iter().map(|b| b.tiles).flatten().collect::<HashSet<Tile>>())
+            .flatten()
+            .collect::<Vec<Tile>>();
+        let belief_p = 1.00;  // TODO: This value should be tweaked.
+        let num_to_believe = (belief_p * all_opponent_tiles.len() as f64) as usize;
+        let mut rng = &mut rand::thread_rng();
+        let belief_tiles: Vec<&Tile> = all_opponent_tiles.choose_multiple(&mut rng, num_to_believe).collect();
+
+        debug!("Player {} holds {:?} and believes {:?}", player.id(), player.hand(), &belief_tiles);
 
         // Remove all the belief tiles from that which we have to find.
         for tile in belief_tiles {
-            match tiles_to_find.binary_search(&tile) {
-                Ok(i) => {
+            match tiles_to_find.iter().position(|x| x == tile) {
+                Some(i) => {
+                    debug!("Removing {:?} from {:?}", tile, tiles_to_find);
                     tiles_to_find.remove(i);
                 }
-                Err(_) => (),
+                None => {
+                    debug!("Could not find {:?} in {:?}", tile, tiles_to_find);
+                }
             };
         }
+
+        debug!("Player {} needs to find {:?} to make word {}", player.id(), &tiles_to_find, self.as_word());
 
         // If we have all the tiles, it's a guaranteed hit.
         if tiles_to_find.is_empty() {
             return 1.0;
+        }
+
+        // If we need to find more tiles than there are on the table, it's a guaranteed flop.
+        if tiles_to_find.len() > num_tiles {
+            return 0.0
         }
 
         // Sort the tiles to find and turn into a word to match the lookup.
@@ -563,7 +588,7 @@ speculate! {
             let bets = ScrabrudoBet::all(&GameState::<ScrabrudoBet>{
                 total_num_items: 4,
                 num_items_per_player: vec![4],
-                history: vec![],
+                history: hashmap!{},
             });
             assert_eq!(2193, bets.len());
             for bet in bets {
@@ -715,7 +740,7 @@ speculate! {
                 original.all_above(&GameState::<PerudoBet>{
                     total_num_items: 2,
                     num_items_per_player: vec![1, 1],
-                    history: vec![],
+                    history: hashmap!{},
                 }));
         }
 
@@ -744,7 +769,7 @@ speculate! {
             let state = &GameState::<PerudoBet>{
                 total_num_items: 6,
                 num_items_per_player: vec![5, 1],
-                history: vec![],
+                history: hashmap!{},
             };
 
             // Bets on Ones, given one in the hand.
