@@ -434,12 +434,17 @@ impl Bet for ScrabrudoBet {
             .map(|t| t.char())
             .collect::<String>();
         if !dict::lookup_has(&substring) {
+            debug!("Couldn't find {} in the lookup", substring);
             0.0 // If we somehow didn't compute this length yet then 0.0
                 // We can prob remove the above
         } else {
+            debug!("Looking up {} in the lookup", substring);
             match dict::lookup_probs(&substring) {
-                Some(ps) => ps[num_tiles],
-                None => 0.0  // TODO: Work out why this happens - we should have every permutation.
+                Some(ps) => {
+                    debug!("P({}) = {:?}", substring, ps);
+                    ps[num_tiles]
+                },
+                None => panic!("Couldn't find '{}' in lookup", substring)
             }
         }
     }

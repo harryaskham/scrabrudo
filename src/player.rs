@@ -526,6 +526,28 @@ speculate! {
     }
 
     describe "scrabrudo player" {
+        it "generates a first bet" {
+            let player = ScrabrudoPlayer {
+                id: 0,
+                human: false,
+                hand: Hand::<Tile> {
+                    items: vec![
+                        Tile::H,
+                        Tile::I
+                    ],
+                },
+            };
+            let state = &GameState::<ScrabrudoBet> {
+                total_num_items: 3,
+                num_items_per_player: vec![2, 1],
+                history: vec![],
+            };
+
+            assert_eq!(
+                ScrabrudoBet::from_word(&"hi".into()),
+                *ScrabrudoBet::best_first_bet(state, Box::new(player)));
+        }
+
         it "generates the most likely bet" {
             let player = &ScrabrudoPlayer {
                 id: 0,
