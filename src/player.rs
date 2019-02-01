@@ -548,7 +548,12 @@ speculate! {
                 *ScrabrudoBet::best_first_bet(state, Box::new(player)));
         }
 
-        it "generates the most likely bet" {
+        // TODO: This is failing presumably because "zoo" in 3 tiles never happens, and so
+        // 1.0 - 0.0 makes Perudo as likely as CHAT. We could always favour a word over Perudo in
+        // these cases, where a word is guaranteed?
+        // Even giving the other player lots of tiles fails - maybe this is because of the 100000
+        // trick. Implement a proper ordering to fix this.
+        it "generates the most likely outcome" {
             let player = &ScrabrudoPlayer {
                 id: 0,
                 human: false,
@@ -562,16 +567,21 @@ speculate! {
                 },
             };
             let state = &GameState::<ScrabrudoBet> {
-                total_num_items: 5,
-                num_items_per_player: vec![4, 1],
-                history: vec![],
+                total_num_items: 9,
+                num_items_per_player: vec![4, 5],
+                history: vec![
+                    HistoricalBet {
+                        index: 1,
+                        bet: ScrabrudoBet::from_word(&"zoo".into()),
+                    }
+                ],
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
             // However, this does depend on the accuracy of the Monte Carlo sim.
-            let opponent_bet = &ScrabrudoBet::from_word(&"cat".into());
-            let best_outcome_above = player.best_outcome_above(state, opponent_bet);
-            assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
+            let current_outcome = TurnOutcome::Bet::<ScrabrudoBet>(ScrabrudoBet::from_word(&"zoo".into()));
+            let next_outcome = player.play(state, &current_outcome);
+            assert_eq!(next_outcome, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
         }
     }
 }
