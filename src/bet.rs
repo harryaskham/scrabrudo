@@ -408,7 +408,7 @@ impl Bet for ScrabrudoBet {
         // TODO: Plug in a strategy here - right now we believe everything the last person said.
         let belief_tiles = match state.history.last() {
             None => vec![],
-            Some(historical_bet) => historical_bet.bet.tiles.clone()
+            Some(historical_bet) => historical_bet.bet.tiles.clone(),
         };
 
         // Remove all the belief tiles from that which we have to find.
@@ -426,7 +426,6 @@ impl Bet for ScrabrudoBet {
             return 1.0;
         }
 
-
         // Sort the tiles to find and turn into a word to match the lookup.
         tiles_to_find.sort_by(|a, b| a.char().cmp(&b.char()));
         let substring = tiles_to_find
@@ -443,8 +442,8 @@ impl Bet for ScrabrudoBet {
                 Some(ps) => {
                     debug!("P({}) = {:?}", substring, ps);
                     ps[num_tiles]
-                },
-                None => panic!("Couldn't find '{}' in lookup", substring)
+                }
+                None => panic!("Couldn't find '{}' in lookup", substring),
             }
         }
     }
