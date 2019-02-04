@@ -1,5 +1,4 @@
 /// Test utils.
-
 use crate::dict;
 use std::sync::Mutex;
 
@@ -12,7 +11,7 @@ pub fn set_up() {
     if !*state {
         pretty_env_logger::try_init();
         dict::init_dict("data/google-10000-english.txt");
-        dict::init_lookup("data/simple_5_100.sstable");
+        dict::init_lookup("data/simple_5_1000.sstable");
         *state = true;
     }
 }

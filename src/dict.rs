@@ -1,10 +1,10 @@
+use sstable::{Options, SSIterator, Table};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::Mutex;
-use sstable::{Table, Options, SSIterator};
 use std::path::Path;
+use std::sync::Mutex;
 
 type Dictionary = HashSet<String>;
 
@@ -57,20 +57,20 @@ fn load_dict(dict_path: &str) -> Dictionary {
 
 /// Does the lookup contain the word?
 pub fn lookup_has(s: &str) -> bool {
-   match lookup().get(s.as_bytes()).unwrap() {
-       Some(_) => true,
-       None => false,
-   }
+    match lookup().get(s.as_bytes()).unwrap() {
+        Some(_) => true,
+        None => false,
+    }
 }
 
 /// Pull the encoded list out of the storage.
 /// None if we don't have probs for this.
 pub fn lookup_probs(s: &str) -> Option<Vec<f64>> {
-   let encoded_probs = match lookup().get(s.as_bytes()).unwrap() {
-       Some(ps) => ps,
-       None => return None,
-   };
-   Some(bincode::deserialize(&encoded_probs).unwrap())
+    let encoded_probs = match lookup().get(s.as_bytes()).unwrap() {
+        Some(ps) => ps,
+        None => return None,
+    };
+    Some(bincode::deserialize(&encoded_probs).unwrap())
 }
 
 /// How many keys?
@@ -80,7 +80,7 @@ pub fn lookup_len() -> usize {
     loop {
         match iter.next() {
             Some(_) => len += 1,
-            None => return len
+            None => return len,
         }
     }
 }

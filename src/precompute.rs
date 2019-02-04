@@ -13,8 +13,8 @@ extern crate itertools;
 extern crate bincode;
 #[macro_use]
 extern crate lazy_static;
-extern crate rayon;
 extern crate clap;
+extern crate rayon;
 extern crate sstable;
 
 // TODO: Can we get away without redefining the world?
@@ -30,8 +30,10 @@ pub mod tile;
 use crate::bet::*;
 use crate::dict::*;
 
+use clap::App;
 use rayon::prelude::*;
 use speculate::speculate;
+use sstable::{Options, TableBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
@@ -39,8 +41,6 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::sync::Arc;
 use std::sync::Mutex;
-use clap::App;
-use sstable::{TableBuilder, Options};
 
 // TODO: I stole this code - find a library or something.
 pub fn powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
@@ -122,7 +122,6 @@ fn create_lookup(
         })
         .collect::<Vec<(&String, Vec<u8>)>>();
 
-
     // Write the probs out to an SSTable.
     // First the keys need to be sorted.
     probs.sort_by(|a, b| a.0.cmp(&b.0));
@@ -153,23 +152,37 @@ fn main() {
     pretty_env_logger::init();
 
     let matches = App::new("Scrabrudo Precomputation")
-       .version("0.1")
-       .about("Precomputes lookups for Scrabrudo")
-       .author("Harry Askham")
-       .args_from_usage("-n, --num_tiles=[NUM_TILES] 'the max number of tiles to compute'
+        .version("0.1")
+        .about("Precomputes lookups for Scrabrudo")
+        .author("Harry Askham")
+        .args_from_usage(
+            "-n, --num_tiles=[NUM_TILES] 'the max number of tiles to compute'
                         -t, --num_trials=[NUM_TRIALS] 'the number of trials to run'
                         -d, --dictionary_path=[DICTIONARY] 'the path to the .txt dict to use'
-                        -l, --lookup_path=[LOOKUP] 'the path to the lookup DB to write'")
-       .get_matches(); 
+                        -l, --lookup_path=[LOOKUP] 'the path to the lookup DB to write'",
+        )
+        .get_matches();
 
     let mode = matches.value_of("mode").unwrap_or("scrabrudo");
-    let num_players: usize = matches.value_of("num_players").unwrap_or("2").parse::<usize>().unwrap();
+    let num_players: usize = matches
+        .value_of("num_players")
+        .unwrap_or("2")
+        .parse::<usize>()
+        .unwrap();
 
     let dict_path = matches.value_of("dictionary_path").unwrap();
     dict::init_dict(dict_path);
 
-    let num_tiles = matches.value_of("num_tiles").unwrap().parse::<usize>().unwrap();
-    let num_trials = matches.value_of("num_trials").unwrap().parse::<u32>().unwrap();
+    let num_tiles = matches
+        .value_of("num_tiles")
+        .unwrap()
+        .parse::<usize>()
+        .unwrap();
+    let num_trials = matches
+        .value_of("num_trials")
+        .unwrap()
+        .parse::<u32>()
+        .unwrap();
     let lookup_path = matches.value_of("lookup_path").unwrap();
     create_lookup(&lookup_path, &dict::dict(), num_tiles, num_trials);
 }

@@ -488,7 +488,7 @@ speculate! {
             let state = &GameState::<PerudoBet> {
                 total_num_items: 5,
                 num_items_per_player: vec![5],
-                history: vec![],
+                history: hashmap!{},
             };
             let opponent_bet = &PerudoBet {
                 quantity: 4,
@@ -514,7 +514,7 @@ speculate! {
             let state = &GameState::<PerudoBet> {
                 total_num_items: 2,
                 num_items_per_player: vec![1, 1],
-                history: vec![],
+                history: hashmap!{},
             };
             let opponent_bet = &PerudoBet {
                 quantity: 1,
@@ -526,7 +526,29 @@ speculate! {
     }
 
     describe "scrabrudo player" {
-        it "generates the most likely bet" {
+        it "generates a first bet" {
+            let player = ScrabrudoPlayer {
+                id: 0,
+                human: false,
+                hand: Hand::<Tile> {
+                    items: vec![
+                        Tile::H,
+                        Tile::I
+                    ],
+                },
+            };
+            let state = &GameState::<ScrabrudoBet> {
+                total_num_items: 3,
+                num_items_per_player: vec![2, 1],
+                history: hashmap!{},
+            };
+
+            assert_eq!(
+                ScrabrudoBet::from_word(&"hi".into()),
+                *ScrabrudoBet::best_first_bet(state, Box::new(player)));
+        }
+
+        it "generates the most likely outcome" {
             let player = &ScrabrudoPlayer {
                 id: 0,
                 human: false,
@@ -540,15 +562,16 @@ speculate! {
                 },
             };
             let state = &GameState::<ScrabrudoBet> {
-                total_num_items: 5,
-                num_items_per_player: vec![4, 1],
-                history: vec![],
+                total_num_items: 9,
+                num_items_per_player: vec![4, 5],
+                history: hashmap!{ 1 => vec![ScrabrudoBet::from_word(&"zzz".into())] }
             };
 
             // We can guarantee 'chat' and so it should play as the only word with the highest P.
-            let opponent_bet = &ScrabrudoBet::from_word(&"cat".into());
-            let best_outcome_above = player.best_outcome_above(state, opponent_bet);
-            assert_eq!(best_outcome_above, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
+            // We will never call Perudo as we have all the letters
+            let current_outcome = TurnOutcome::Bet::<ScrabrudoBet>(ScrabrudoBet::from_word(&"zzz".into()));
+            let next_outcome = player.play(state, &current_outcome);
+            assert_eq!(next_outcome, TurnOutcome::Bet(ScrabrudoBet::from_word(&"chat".into())));
         }
     }
 }
