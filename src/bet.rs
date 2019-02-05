@@ -18,6 +18,8 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::iter;
 
 /// Trait implemented by any type of bet.
@@ -98,10 +100,13 @@ pub trait Bet: Ord + Clone + fmt::Display {
         state: &GameState<Self>,
         player: Box<dyn Player<V = Self::V, B = Self>>,
     ) -> Vec<Box<Self>> {
+        let word_counter = Arc::new(Mutex::new(0));
         let mut bets = Self::all(state)
             .into_iter()
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
             .map(|b| {
+                *word_counter.lock().unwrap() += 1;
+                info! {"{} bets evaluated", word_counter.lock().unwrap()};
                 (
                     (100000.0 * b.prob(state, ProbVariant::Bet, player.cloned())) as u64,
                     b,
@@ -419,7 +424,9 @@ impl Bet for ScrabrudoBet {
             .map(|(_, bets)| bets.into_iter().map(|b| b.tiles).flatten().collect::<HashSet<Tile>>())
             .flatten()
             .collect::<Vec<Tile>>();
-        let belief_p = 1.00;  // TODO: This value should be tweaked.
+
+        let belief_p = 0.5;  // TODO: This value should be tweaked.
+
         let num_to_believe = (belief_p * all_opponent_tiles.len() as f64) as usize;
         let mut rng = &mut rand::thread_rng();
         let belief_tiles: Vec<&Tile> = all_opponent_tiles.choose_multiple(&mut rng, num_to_believe).collect();
