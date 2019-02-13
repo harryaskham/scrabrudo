@@ -106,7 +106,7 @@ pub trait Bet: Ord + Clone + fmt::Display {
             // TODO: Remove awful hack to get around lack of Ord on f64 and therefore no sort().
             .map(|b| {
                 *word_counter.lock().unwrap() += 1;
-                info! {"{} bets evaluated", word_counter.lock().unwrap()};
+                debug! {"{} bets evaluated", word_counter.lock().unwrap()};
                 (
                     (100000.0 * b.prob(state, ProbVariant::Bet, player.cloned())) as u64,
                     b,
