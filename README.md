@@ -14,7 +14,7 @@ More generally, this repository provides a general framework for defining games 
 - When out of items, a player is disqualified
 - Play proceeds until only one player remains
 
-A simple version of [https://en.wikipedia.org/wiki/Dudo](Perudo), for example, can be made from the above with:
+A simple version of [Perudo](https://en.wikipedia.org/wiki/Dudo), for example, can be made from the above with:
 - the items being dice
 - the hand being a collection of 5 dice
 - the ordering taking place over tuples of (dice value, quantity) such that e.g. "four fives" is a lower bet than "two sixes"
