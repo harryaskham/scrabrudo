@@ -2,7 +2,7 @@
 A letter-based variant on a game of dice estimation written in Rust.
 
 ![play example](example.jpeg)
-*An example AI-vs-AI game of Scrabrudo
+*An example AI-vs-AI game of Scrabrudo*
 
 More generally, this repository provides a general framework for defining games of the following format:
 
