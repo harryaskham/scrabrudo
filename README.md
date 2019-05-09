@@ -1,21 +1,43 @@
 # scrabrudo
-A letter-based variant on a game of dice estimation.
+A letter-based variant on a game of dice estimation written in Rust.
+
+More generally though, this repository provides a general framework for defining games of the following format:
+- Players have a "hand" made up of items randomly sampled from some set of orderable things
+- Players can only see their own hand
+- Play proceeds clockwise by placing bets of the form "there are at least N of a certain instance of item X on the table"
+- Each player may either raise the bet ("there are at least N+1...") or call the bluff of the player before them
+- When the bluff is called, if the bet was correct then the calling player loses an item; otherwise the better loses an item
+- When out of items, a player is disqualified
+- Play proceeds until only one player remains
+
+A simple version of [https://en.wikipedia.org/wiki/Dudo](Perudo), for example, can be made from the above with:
+- the items being dice
+- the hand being a collection of 5 dice
+- the ordering taking place over tuples of (dice value, quantity) such that e.g. "four fives" is a lower bet than "two sixes"
+
+There are other rules to Perudo (the special role of 1s, Palafico, Calzo, etc) which are accounted for in the `PerudoGame` implementation.
+
+We provide a reference implementation of Perudo as well as a variant (Scrabrudo...) played with Scrabble tiles, in which players must guess whether increasingly long words can be made using the letters in every hand.
 
 ## Playing
 
-To play Scrabrudo against 1 other player, with human going first, run:
+To play Scrabrudo against 1 other AI player, with human going first, run:
 
 ```sh
 RUST_LOG=info cargo run --bin scrabrudo -- --human_index=0 --dictionary_path=data/<dict>.txt --lookup_path=data/<lookup>.bin
 ```
 
-To play basic Perudo against 3:
+To play basic Perudo against 3 AI players:
 
 ```sh
 RUST_LOG=info cargo run --bin scrabrudo -- --mode=perudo --human_index=0 --num_players=4
 ```
 
-## Initialization
+## Notes on Initialization
+
+The below are notes on the AI construction; as far as I can tell, playing mathematically 'perfect' Perudo (in a non-Bayesian sense, e.g. disbelieving everything everybody else bets) is intractable in the Scrabble-tile variant case, and so we use Monte Carlo simulation to work out the probability of every subset of every legal word.
+
+### Details
 
 The tile variant of the game requires multinomial CDF probability calculations (e.g. I want to know the probability that 'cat' is on the table - I hold a 'c' and my opponents have 10 tiles between them. This is:
 
