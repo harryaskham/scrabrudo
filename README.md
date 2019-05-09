@@ -1,7 +1,11 @@
 # scrabrudo
 A letter-based variant on a game of dice estimation written in Rust.
 
-More generally though, this repository provides a general framework for defining games of the following format:
+![play example](example.jpeg)
+*An example game of Scrabrudo
+
+More generally, this repository provides a general framework for defining games of the following format:
+
 - Players have a "hand" made up of items randomly sampled from some set of orderable things
 - Players can only see their own hand
 - Play proceeds clockwise by placing bets of the form "there are at least N of a certain instance of item X on the table"
